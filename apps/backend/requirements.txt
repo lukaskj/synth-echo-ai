@@ -1,2 +1,17 @@
 Flask==3.1.1
 Flask-Cors==6.0.1
+omnivoice==0.1.5
+soundfile==0.13.1
+PyYAML==6.0.3
+Pygments==2.20.0
+charset-normalizer==3.4.7
+flask-cors==6.0.1
+gradio_client==2.5.0
+groovy==0.1.2
+lazy-loader==0.5
+mdurl==0.1.2
+omnivoice==0.1.5
+orjson==3.11.9
+pydantic_core==2.46.4
+semantic-version==2.10.0
+tensorboardX==2.6.5

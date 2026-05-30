@@ -4,7 +4,10 @@ apps/frontend/build/
 apps/frontend/dist/
 apps/frontend/artifacts/
 apps/backend/.venv/
+apps/backend/data/
+apps/backend/storage/
 __pycache__/
 *.pyc
 *.tsbuildinfo
 .env
+*.stackdump

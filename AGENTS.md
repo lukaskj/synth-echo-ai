@@ -1,34 +1,43 @@
 # AGENTS.md
 
-## Trust These Sources
-- README files are partially stale. Trust `package.json`, `scripts/back-*.ts`, and `apps/frontend/{package.json,vite.config.ts,svelte.config.js}` over README command examples.
-- Use Bun at the repo root. `bun install` is not frontend-only: root `postinstall` runs `bun run backend:setup`, so installs require `python` on `PATH` and will create/update `apps/backend/.venv`.
+## Trust Code, Not Docs
+- `README.md` and `apps/frontend/README.md` are stale/template content. Trust root `package.json`, `scripts/back-*.ts`, `apps/frontend/package.json`, `apps/frontend/{vite.config.ts,svelte.config.js}`, and backend code under `apps/backend/tts_backend/`.
+- Run Bun from the repo root. `bun install` also runs `bun run backend:setup`, so it requires `python` on `PATH` and creates or updates `apps/backend/.venv`.
 
 ## Repo Shape
-- Only `apps/frontend` is a Bun workspace package. The Flask backend in `apps/backend` is managed by root scripts, not workspace commands.
-- Current integration is minimal: `apps/backend/app.py` only serves `GET /api/hello`, and the frontend does not currently call the backend.
+- Repo = static SvelteKit frontend in `apps/frontend` plus Flask API in `apps/backend`.
+- Only `apps/frontend` is a Bun workspace package. Manage the backend through the root scripts, not as a workspace package.
+- `apps/backend/app.py` only boots the app; the real backend wiring is in `apps/backend/tts_backend/factory.py` and `routes.py`.
+- Frontend API paths live in `apps/frontend/src/lib/tts/constants.ts`; base URL and endpoint helpers live in `apps/frontend/src/lib/tts/helpers.ts`.
 
-## Frontend
-- The real app entrypoints are `apps/frontend/src/routes/*`. It is SvelteKit 2 with `@sveltejs/adapter-static`, and `src/routes/+layout.ts` sets `prerender = true`; treat it as a fully static site unless you intentionally change deployment assumptions.
-- `apps/frontend/svelte.config.js` forces Svelte 5 runes mode for app code. Follow rune syntax instead of legacy Svelte component APIs.
-- Tailwind uses v4's Vite plugin plus `src/routes/layout.css`; there is no `tailwind.config.*`.
-- Useful commands:
-  - dev: `bun run frontend:dev`
-  - typecheck: `bun run --cwd apps/frontend check`
-  - build: `bun run --cwd apps/frontend build`
-  - focused Node-side tests: `bun run --cwd apps/frontend test:unit -- --project server --run`
-  - single test file: `bun run --cwd apps/frontend test:unit -- --run src/lib/vitest-examples/greet.spec.ts`
-- Vitest is split in `apps/frontend/vite.config.ts`: `*.svelte.spec.ts` runs in the Playwright browser project, other specs run in Node. Full `test` / `test:unit` currently fails if Playwright browsers are not installed.
-- Ignore root `frontend:start`; it points to a nonexistent `start` script. Use `bun run --cwd apps/frontend preview` after `build` for a production preview.
-- No lint or formatter command is configured; `check` is the main automated frontend static verification.
+## Commands
+- Frontend dev: `bun run frontend:dev`
+- Frontend typecheck: `bun run --cwd apps/frontend check`
+- Frontend build: `bun run --cwd apps/frontend build`
+- Frontend tests: `bun run --cwd apps/frontend test:unit -- --run`
+- Single frontend test file: `bun run --cwd apps/frontend test:unit -- --run path/to/spec.ts`
+- Backend deps / venv refresh: `bun run backend:setup`
+- Backend dev server: `bun run backend:dev`
+- Lightweight backend verification from `apps/backend`: `python -m compileall app.py tts_backend`
+- `bun run frontend:start` is broken: root `package.json` points to an `apps/frontend` `start` script that does not exist.
 
-## Backend
-- Use root scripts instead of manually activating the venv:
-  - setup/update deps: `bun run backend:setup`
-  - run dev server: `bun run backend:dev`
-- The live launcher is `scripts/back-run.ts`; `apps/backend/back-run.ts` is not referenced by root scripts.
-- There is no backend test, lint, or typecheck config yet. Current verification is starting the server and checking `http://127.0.0.1:5000/api/hello`.
-- An `apps/backend/.env` file may exist, but `requirements.txt` does not include `python-dotenv`; do not assume `.env` values are loaded automatically.
+## Frontend Gotchas
+- Keep the frontend static unless you intentionally change deployment assumptions: `@sveltejs/adapter-static` is enabled, `src/routes/+layout.ts` sets `prerender = true`, and `svelte.config.js` prerenders `'/api/mock-tts'`.
+- App code is forced into Svelte 5 runes mode in `apps/frontend/svelte.config.js`; do not use legacy component APIs.
+- Browser code calls Flask directly via `PUBLIC_BACKEND_BASE_URL`, default `http://127.0.0.1:5000`.
+- Tailwind is configured through the Vite plugin and `src/routes/layout.css`; there is no `tailwind.config.*`.
+- `apps/frontend/src/routes/api/mock-tts/+server.ts` is a prerendered mock endpoint for UI work without the Flask backend.
+- Vitest is split by project: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, non-Svelte tests run in Node. Browser specs need Playwright browsers installed.
+- The only current frontend tests are starter examples under `apps/frontend/src/lib/vitest-examples/`; they are not meaningful app coverage.
+- Prefer extending `apps/frontend/src/lib/tts/` instead of adding more logic to the already-large `apps/frontend/src/routes/+page.svelte`.
 
-## Search Noise
-- Exclude local/generated directories from searches and edits: `apps/backend/.venv/`, `apps/frontend/.svelte-kit/`, `apps/frontend/build/`, `node_modules/`.
+## Backend Gotchas
+- Flask routes are mounted under `/api/v1`.
+- Model state matters: a second load request while loading returns `409`, and synthesize/clone also return `409` until the model is loaded.
+- Clone settings persist in `apps/backend/data/clone_settings.sqlite3`; reference audio persists in `apps/backend/storage/clone_settings/`.
+- The clone-settings table and inline column migration live in `apps/backend/tts_backend/repositories/clone_settings_repository.py`; there is no migration system.
+- The backend does not auto-load `.env`; `python-dotenv` is not installed.
+- `apps/backend/tts_backend/constants.py` hardcodes `MODEL_DEVICE_MAP = "cuda:0"`; CPU-only work will fail unless that code is changed.
+
+## Ignore
+- Ignore `apps/backend/.venv/`, `apps/backend/data/`, `apps/backend/storage/`, `apps/frontend/.svelte-kit/`, `apps/frontend/build/`, and `node_modules/`.

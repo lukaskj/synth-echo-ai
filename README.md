@@ -17,6 +17,16 @@ bun run dev:frontend
 ```
 
 ## Backend
+Install Pytorch:
+```bash
+# CUDA
+pip install torch==2.11.0+cu128 torchaudio==2.11.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
+```
+
+Install omnivoice
+```
+pip install omnivoice
+```
 
 From `apps/backend/`, create the virtual environment:
 
