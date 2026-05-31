@@ -20,8 +20,7 @@
     getSpeechRecognitionLocale,
     getSpeechRecognitionConstructor
   } from '$lib/tts/audio';
-  import ScriptPanel from '$lib/tts/components/ScriptPanel.svelte';
-  import SettingsPanel from '$lib/tts/components/SettingsPanel.svelte';
+  import TtsDashboard from '$lib/tts/components/TtsDashboard.svelte';
   import {
     DEFAULT_FORM_STATE,
     LANGUAGES,
@@ -42,21 +41,33 @@
     TtsMode
   } from '$lib/tts/types';
 
+  // ─── Core state ──────────────────────────────────────────────────────────────
   let mode = $state<TtsMode>('synthesize');
   let cloneView = $state<CloneView>('list');
   let inputText = $state(DEFAULT_FORM_STATE.inputText);
   let cloneInputText = $state(DEFAULT_FORM_STATE.cloneInputText);
+
+  // ─── Voice sheet navigation ───────────────────────────────────────────────
+  let isVoiceSheetOpen = $state(false);
+  let isRecordMode = $state(false);
+
+  // ─── Clone setting form fields ────────────────────────────────────────────
   let cloneSettingName = $state(DEFAULT_FORM_STATE.cloneSettingName);
   let cloneRefText = $state(DEFAULT_FORM_STATE.cloneRefText);
   let cloneRefAudioFile = $state<File | null>(null);
   let cloneRefAudioPreviewUrl = $state('');
   let cloneRefAudioInputKey = $state(0);
   let cloneRefAudioIsMicrophoneRecording = $state(false);
+
+  // ─── Recording state ──────────────────────────────────────────────────────
   let isRecordingCloneRefAudio = $state(false);
   let microphoneStatusMessage = $state('');
   let microphoneStatusIsError = $state(false);
   let recordingStartedAt = $state<number | null>(null);
   let recordingElapsedMs = $state(0);
+  let mediaStream = $state<MediaStream | null>(null);
+
+  // ─── Synthesis parameters ─────────────────────────────────────────────────
   let lang = $state(DEFAULT_FORM_STATE.lang);
   let speed = $state(DEFAULT_FORM_STATE.speed);
   let numStep = $state(DEFAULT_FORM_STATE.numStep);
@@ -68,14 +79,18 @@
   let selectedPitch = $state(DEFAULT_FORM_STATE.selectedPitch);
   let selectedAge = $state(DEFAULT_FORM_STATE.selectedAge);
   let selectedStyle = $state(DEFAULT_FORM_STATE.selectedStyle);
+
+  // ─── Request state ────────────────────────────────────────────────────────
   let status = $state<RequestStatus>('idle');
   let audioUrl = $state('');
   let errorMessage = $state('');
   let responseMessage = $state('');
-  let cloneSettingsMessage = $state('');
-  let cloneSettingsErrorMessage = $state('');
   let lastRequest = $state<LastRequest | null>(null);
   let modelReady = $state(false);
+
+  // ─── Clone settings management ────────────────────────────────────────────
+  let cloneSettingsMessage = $state('');
+  let cloneSettingsErrorMessage = $state('');
   let isCloneSettingsLoading = $state(false);
   let isSavingCloneSetting = $state(false);
   let isUpdatingCloneSetting = $state(false);
@@ -85,8 +100,9 @@
   let savedCloneSettings = $state<SavedCloneSetting[]>([]);
   let selectedCloneSettingId = $state<number | null>(null);
   let selectedCloneSetting = $state<SavedCloneSetting | null>(null);
+
+  // ─── Non-reactive recording internals ─────────────────────────────────────
   let mediaRecorder: MediaRecorder | null = null;
-  let mediaStream: MediaStream | null = null;
   let speechRecognition: SpeechRecognitionInstance | null = null;
   let recordingChunks: Blob[] = [];
   let transcriptSegments: string[] = [];
@@ -94,6 +110,7 @@
   let recognitionShouldRemainActive = false;
   let discardPendingRecording = false;
 
+  // ─── Derived state ────────────────────────────────────────────────────────
   let isBusy = $derived(
     status === 'loading-model' ||
       status === 'unloading-model' ||
@@ -123,22 +140,18 @@
     selectedCloneSetting !== null && !isDeletingCloneSetting && !isBusy
   );
   let canSubmit = $derived(mode === 'clone' ? canClone : canSynthesize);
-  let activeLang = $derived(mode === 'clone' ? cloneLang : lang);
   let cloneRefAudioName = $derived(cloneRefAudioFile?.name ?? '');
   let recordingElapsedLabel = $derived(formatElapsedTime(recordingElapsedMs));
   let isSpeechRecognitionSupported = $derived(getSpeechRecognitionConstructor() !== null);
   let canRecordCloneRefAudio = $derived(
     !isSavingCloneSetting && !isBusy && typeof navigator !== 'undefined'
   );
-  let selectedLanguageLabel = $derived(
-    LANGUAGES.find((option) => option.value === activeLang)?.label ?? 'Unknown'
-  );
   let instruct = $derived(
     buildInstruct([selectedGender, selectedPitch, selectedAccent, selectedAge, selectedStyle])
   );
-  let statusLabel = $derived(REQUEST_STATUS_LABELS[status]);
   let syncTextOnModeChange = false;
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
   function resetAudioPreview() {
     revokeObjectUrl(audioUrl);
     audioUrl = '';
@@ -225,15 +238,11 @@
       if (event.error === 'aborted' || event.error === 'no-speech') {
         return;
       }
-
       setMicrophoneStatus(UI_TEXT.speechRecognitionNotSupported, true);
     };
 
     recognition.onend = () => {
-      if (!recognitionShouldRemainActive) {
-        return;
-      }
-
+      if (!recognitionShouldRemainActive) return;
       try {
         recognition.start();
       } catch {
@@ -295,18 +304,22 @@
     discardPendingRecording = false;
     setMicrophoneStatus('');
 
+    let stream: MediaStream;
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setMicrophoneStatus(UI_TEXT.microphoneAccessFailed, true);
       return;
     }
 
+    // Update reactive mediaStream for waveform visualizer
+    mediaStream = stream;
+
     try {
       const mimeType = getPreferredRecordingMimeType();
       mediaRecorder = mimeType
-        ? new MediaRecorder(mediaStream, { mimeType })
-        : new MediaRecorder(mediaStream);
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
     } catch {
       stopMediaStream();
       setMicrophoneStatus(UI_TEXT.recordingFailed, true);
@@ -333,9 +346,7 @@
       stopSpeechRecognition();
       resetRecordingState();
 
-      if (shouldDiscard) {
-        return;
-      }
+      if (shouldDiscard) return;
 
       if (recordedBlob.size === 0) {
         setMicrophoneStatus(UI_TEXT.recordingFailed, true);
@@ -359,10 +370,7 @@
   }
 
   function stopCloneRefRecording() {
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-      return;
-    }
-
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
     mediaRecorder.stop();
   }
 
@@ -373,7 +381,6 @@
       mediaRecorder.stop();
       return;
     }
-
     stopMediaStream();
     resetRecordingState();
   }
@@ -383,10 +390,10 @@
       stopCloneRefRecording();
       return;
     }
-
     await startCloneRefRecording();
   }
 
+  // ─── Effects ──────────────────────────────────────────────────────────────
   onDestroy(() => {
     resetAudioPreview();
     resetCloneRefAudioPreview();
@@ -396,11 +403,22 @@
   });
 
   $effect(() => {
-    if (mode !== 'clone' || hasLoadedCloneSettings || isCloneSettingsLoading) {
-      return;
-    }
-
+    if (mode !== 'clone' || hasLoadedCloneSettings || isCloneSettingsLoading) return;
     void refreshSavedCloneSettings();
+  });
+
+  $effect(() => {
+    if (!isVoiceSheetOpen || hasLoadedCloneSettings || isCloneSettingsLoading) return;
+    void refreshSavedCloneSettings();
+  });
+
+  $effect(() => {
+    // When the sheet closes, reset cloneView to 'list' so reopening always shows the voice list
+    if (!isVoiceSheetOpen) {
+      cloneView = 'list';
+      cloneSettingsMessage = '';
+      cloneSettingsErrorMessage = '';
+    }
   });
 
   $effect(() => {
@@ -408,7 +426,6 @@
       syncTextOnModeChange = true;
       return;
     }
-
     if (mode === 'clone') {
       cloneInputText = inputText;
     } else {
@@ -420,37 +437,26 @@
     if (!isRecordingCloneRefAudio || recordingStartedAt === null || typeof window === 'undefined') {
       return;
     }
-
     recordingElapsedMs = Date.now() - recordingStartedAt;
     const intervalId = window.setInterval(() => {
       recordingElapsedMs = recordingStartedAt === null ? 0 : Date.now() - recordingStartedAt;
     }, 250);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
+    return () => window.clearInterval(intervalId);
   });
 
   $effect(() => {
-    if (mode === 'clone' && cloneView === 'create') {
-      return;
+    // Discard recording when navigating away from the record view
+    const isInRecordView = isVoiceSheetOpen && cloneView === 'create' && isRecordMode;
+    if (!isInRecordView && (isRecordingCloneRefAudio || mediaStream !== null)) {
+      discardCloneRefRecording();
     }
-
-    if (!isRecordingCloneRefAudio && mediaStream === null) {
-      return;
-    }
-
-    discardCloneRefRecording();
   });
 
+  // ─── Model actions ────────────────────────────────────────────────────────
   async function ensureModelLoaded() {
-    if (modelReady) {
-      return;
-    }
-
+    if (modelReady) return;
     status = 'loading-model';
     responseMessage = '';
-
     const payload = await loadModel();
     modelReady = true;
     responseMessage = payload.message || UI_TEXT.modelLoadedSuccess;
@@ -459,7 +465,6 @@
 
   async function handleLoadModel() {
     errorMessage = '';
-
     try {
       await ensureModelLoaded();
     } catch (error) {
@@ -471,7 +476,6 @@
   async function handleUnloadModel() {
     errorMessage = '';
     status = 'unloading-model';
-
     try {
       const payload = await unloadModel();
       modelReady = false;
@@ -485,8 +489,9 @@
     }
   }
 
-  async function handleSynthesize(event: SubmitEvent) {
-    event.preventDefault();
+  // ─── Generate speech ──────────────────────────────────────────────────────
+  async function handleSynthesize(event?: SubmitEvent) {
+    event?.preventDefault();
 
     if (mode === 'clone') {
       await handleClone();
@@ -494,7 +499,6 @@
     }
 
     const trimmedText = inputText.trim();
-
     if (!trimmedText) {
       status = 'error';
       errorMessage = UI_TEXT.enterTextError;
@@ -512,20 +516,13 @@
     try {
       await ensureModelLoaded();
       status = 'synthesizing';
-
-      const audioBlob = await synthesizeAudio({
-        text: trimmedText,
-        lang,
-        speed,
-        num_step: numStep,
-        instruct
-      });
+      const audioBlob = await synthesizeAudio({ text: trimmedText, lang, speed, num_step: numStep, instruct });
       audioUrl = URL.createObjectURL(audioBlob);
       responseMessage = UI_TEXT.synthesisComplete;
       lastRequest = {
         mode: 'synthesize',
         text: trimmedText,
-        langLabel: selectedLanguageLabel,
+        langLabel: LANGUAGES.find((o) => o.value === lang)?.label ?? 'Unknown',
         speed,
         numStep,
         instruct
@@ -539,7 +536,6 @@
 
   async function handleClone() {
     const trimmedText = cloneInputText.trim();
-
     if (!trimmedText) {
       status = 'error';
       errorMessage = UI_TEXT.enterTextError;
@@ -559,7 +555,6 @@
     }
 
     const activeCloneSetting = selectedCloneSetting;
-
     errorMessage = '';
     responseMessage = '';
     cloneSettingsErrorMessage = '';
@@ -570,7 +565,6 @@
     try {
       await ensureModelLoaded();
       status = 'cloning';
-
       const audioBlob = await cloneAudio({
         text: trimmedText,
         settingId: activeCloneSetting.id,
@@ -583,7 +577,7 @@
       lastRequest = {
         mode: 'clone',
         text: trimmedText,
-        langLabel: LANGUAGES.find((option) => option.value === cloneLang)?.label ?? 'Unknown',
+        langLabel: LANGUAGES.find((o) => o.value === cloneLang)?.label ?? 'Unknown',
         speed: cloneSpeed,
         numStep: cloneNumStep,
         refText: activeCloneSetting.ref_text,
@@ -605,15 +599,15 @@
     setMicrophoneStatus('');
   }
 
+  // ─── Clone settings CRUD ──────────────────────────────────────────────────
   async function refreshSavedCloneSettings() {
     isCloneSettingsLoading = true;
     cloneSettingsErrorMessage = '';
-
     try {
       savedCloneSettings = await listSavedCloneSettings();
       if (selectedCloneSettingId !== null) {
         const nextSelectedSetting =
-          savedCloneSettings.find((setting) => setting.id === selectedCloneSettingId) ?? null;
+          savedCloneSettings.find((s) => s.id === selectedCloneSettingId) ?? null;
         selectedCloneSetting = nextSelectedSetting;
         if (nextSelectedSetting === null && cloneView === 'selected') {
           cloneView = 'list';
@@ -632,27 +626,14 @@
   async function handleSaveCloneSetting() {
     const trimmedName = cloneSettingName.trim();
     const trimmedRefText = cloneRefText.trim();
-
     cloneSettingsErrorMessage = '';
     cloneSettingsMessage = '';
 
-    if (!trimmedName) {
-      cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError;
-      return;
-    }
-
-    if (!cloneRefAudioFile) {
-      cloneSettingsErrorMessage = UI_TEXT.uploadReferenceAudioError;
-      return;
-    }
-
-    if (!trimmedRefText) {
-      cloneSettingsErrorMessage = UI_TEXT.enterReferenceTextError;
-      return;
-    }
+    if (!trimmedName) { cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError; return; }
+    if (!cloneRefAudioFile) { cloneSettingsErrorMessage = UI_TEXT.uploadReferenceAudioError; return; }
+    if (!trimmedRefText) { cloneSettingsErrorMessage = UI_TEXT.enterReferenceTextError; return; }
 
     isSavingCloneSetting = true;
-
     try {
       const payload = await saveCloneSetting({
         name: trimmedName,
@@ -670,7 +651,9 @@
       if (typeof payload.id === 'number') {
         await handleSelectSavedCloneSetting(payload.id);
       }
-      cloneView = 'selected';
+      // Switch to clone mode and close the sheet
+      mode = 'clone';
+      isVoiceSheetOpen = false;
     } catch (error) {
       cloneSettingsErrorMessage =
         error instanceof Error ? error.message : UI_TEXT.saveCloneSettingFailed;
@@ -684,7 +667,6 @@
     cloneSettingsMessage = '';
     isLoadingSelectedCloneSetting = true;
     selectedCloneSettingId = settingId;
-
     try {
       const setting = await getSavedCloneSetting(settingId);
       selectedCloneSetting = setting;
@@ -710,7 +692,16 @@
     cloneNumStep = DEFAULT_FORM_STATE.cloneNumStep;
   }
 
-  function handleStartCreateCloneSetting() {
+  // Voice sheet navigation handlers
+  function handleSelectVoice(settingId: number) {
+    void handleSelectSavedCloneSetting(settingId).then(() => {
+      mode = 'clone';
+      isVoiceSheetOpen = false;
+    });
+  }
+
+  function handleStartAddUpload() {
+    isRecordMode = false;
     cloneView = 'create';
     selectedCloneSettingId = null;
     selectedCloneSetting = null;
@@ -721,31 +712,45 @@
     cloneSettingsErrorMessage = '';
   }
 
-  function handleBackToCloneSettingsList() {
-    cloneView = 'list';
+  function handleStartAddRecord() {
+    isRecordMode = true;
+    cloneView = 'create';
     selectedCloneSettingId = null;
     selectedCloneSetting = null;
+    resetCloneSettingForm();
+    clearCloneRefAudioSelection();
+    setMicrophoneStatus('');
     cloneSettingsMessage = '';
     cloneSettingsErrorMessage = '';
   }
 
-  async function handleUpdateSelectedCloneSetting() {
-    if (!selectedCloneSetting) {
-      return;
-    }
+  function handleStartEditVoice(settingId: number) {
+    void handleSelectSavedCloneSetting(settingId);
+  }
 
+  function handleBackToList() {
+    if (cloneView !== 'selected') {
+      selectedCloneSettingId = null;
+      selectedCloneSetting = null;
+    }
+    cloneView = 'list';
+    cloneSettingsMessage = '';
+    cloneSettingsErrorMessage = '';
+    if (isRecordingCloneRefAudio) {
+      discardCloneRefRecording();
+    }
+    isRecordMode = false;
+  }
+
+  async function handleUpdateSelectedCloneSetting() {
+    if (!selectedCloneSetting) return;
     const activeCloneSetting = selectedCloneSetting;
     const trimmedName = cloneSettingName.trim();
-
-    if (!trimmedName) {
-      cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError;
-      return;
-    }
+    if (!trimmedName) { cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError; return; }
 
     isUpdatingCloneSetting = true;
     cloneSettingsMessage = '';
     cloneSettingsErrorMessage = '';
-
     try {
       await updateCloneSetting({
         settingId: selectedCloneSetting.id,
@@ -754,85 +759,51 @@
         speed: cloneSpeed,
         numStep: cloneNumStep
       });
-
-      selectedCloneSetting = {
-        ...activeCloneSetting,
-        name: trimmedName,
-        lang: cloneLang,
-        speed: cloneSpeed,
-        num_step: cloneNumStep
-      };
+      selectedCloneSetting = { ...activeCloneSetting, name: trimmedName, lang: cloneLang, speed: cloneSpeed, num_step: cloneNumStep };
       cloneSettingName = trimmedName;
-      savedCloneSettings = savedCloneSettings.map((setting) =>
-        setting.id === activeCloneSetting.id
-          ? {
-              ...setting,
-              name: trimmedName,
-              lang: cloneLang,
-              speed: cloneSpeed,
-              num_step: cloneNumStep
-            }
-          : setting
+      savedCloneSettings = savedCloneSettings.map((s) =>
+        s.id === activeCloneSetting.id
+          ? { ...s, name: trimmedName, lang: cloneLang, speed: cloneSpeed, num_step: cloneNumStep }
+          : s
       );
       cloneSettingsMessage = UI_TEXT.cloneSettingUpdatedSuccess;
     } catch (error) {
-      cloneSettingsErrorMessage =
-        error instanceof Error ? error.message : UI_TEXT.updateCloneSettingFailed;
+      cloneSettingsErrorMessage = error instanceof Error ? error.message : UI_TEXT.updateCloneSettingFailed;
     } finally {
       isUpdatingCloneSetting = false;
     }
   }
 
-  function handleCancelCreateCloneSetting() {
-    clearCloneRefAudioSelection();
-    resetCloneSettingForm();
-    setMicrophoneStatus('');
-    cloneView = 'list';
-    cloneSettingsMessage = '';
-    cloneSettingsErrorMessage = '';
-  }
-
   async function handleDeleteSelectedCloneSetting() {
-    if (!selectedCloneSetting) {
-      return;
-    }
-
+    if (!selectedCloneSetting) return;
     await handleDeleteSavedCloneSetting(selectedCloneSetting.id);
   }
 
   async function handleDeleteSavedCloneSetting(settingId: number) {
-    const settingToDelete = savedCloneSettings.find((setting) => setting.id === settingId) ?? null;
-    if (!settingToDelete) {
-      return;
-    }
-
-    if (!window.confirm(UI_TEXT.deleteCloneSettingConfirm)) {
-      return;
-    }
+    const settingToDelete = savedCloneSettings.find((s) => s.id === settingId) ?? null;
+    if (!settingToDelete) return;
+    if (!window.confirm(UI_TEXT.deleteCloneSettingConfirm)) return;
 
     isDeletingCloneSetting = true;
     cloneSettingsErrorMessage = '';
     cloneSettingsMessage = '';
-
     try {
       await deleteCloneSetting(settingToDelete.id);
-      savedCloneSettings = savedCloneSettings.filter(
-        (setting) => setting.id !== settingToDelete.id
-      );
-
+      savedCloneSettings = savedCloneSettings.filter((s) => s.id !== settingToDelete.id);
       if (selectedCloneSettingId === settingToDelete.id) {
         selectedCloneSettingId = null;
         selectedCloneSetting = null;
         cloneView = 'list';
+        mode = 'synthesize';
         resetCloneSettingForm();
         clearCloneRefAudioSelection();
         setMicrophoneStatus('');
       }
-
       cloneSettingsMessage = UI_TEXT.cloneSettingDeletedSuccess;
+      // Go back to list after delete
+      cloneView = 'list';
     } catch (error) {
-      cloneSettingsErrorMessage =
-        error instanceof Error ? error.message : UI_TEXT.deleteCloneSettingFailed;
+      cloneSettingsErrorMessage = error instanceof Error ? error.message : UI_TEXT.deleteCloneSettingFailed;
     } finally {
       isDeletingCloneSetting = false;
     }
@@ -844,80 +815,73 @@
   <meta name="description" content={PAGE_DESCRIPTION} />
 </svelte:head>
 
-<div class="min-h-screen bg-slate-950 text-slate-100">
-  <div class="mx-auto max-w-7xl px-3 py-3 sm:px-6 lg:px-6">
-    <form
-      class="mt-2 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.95fr)]"
-      onsubmit={handleSynthesize}
-    >
-      <ScriptPanel
-        {mode}
-        {canSubmit}
-        bind:synthesizeInputText={inputText}
-        bind:cloneInputText
-        {statusLabel}
-        {modelReady}
-        {isBusy}
-        {status}
-        {audioUrl}
-        {errorMessage}
-        {responseMessage}
-        {lastRequest}
-        onLoadModel={handleLoadModel}
-        onUnloadModel={handleUnloadModel}
-      />
-
-      <SettingsPanel
-        bind:mode
-        {cloneView}
-        bind:cloneSettingName
-        bind:cloneRefText
-        {cloneRefAudioInputKey}
-        {cloneRefAudioName}
-        {cloneRefAudioIsMicrophoneRecording}
-        {cloneRefAudioPreviewUrl}
-        {isRecordingCloneRefAudio}
-        {recordingElapsedLabel}
-        {isSpeechRecognitionSupported}
-        {microphoneStatusMessage}
-        {microphoneStatusIsError}
-        {canRecordCloneRefAudio}
-        bind:synthesizeLang={lang}
-        bind:synthesizeSpeed={speed}
-        bind:synthesizeNumStep={numStep}
-        bind:cloneLang
-        bind:cloneSpeed
-        bind:cloneNumStep
-        bind:selectedGender
-        bind:selectedAccent
-        bind:selectedPitch
-        bind:selectedAge
-        bind:selectedStyle
-        {instruct}
-        {canSaveCloneSetting}
-        {canUpdateCloneSetting}
-        {canDeleteCloneSetting}
-        {cloneSettingsErrorMessage}
-        {cloneSettingsMessage}
-        {isCloneSettingsLoading}
-        {isLoadingSelectedCloneSetting}
-        {isSavingCloneSetting}
-        {isUpdatingCloneSetting}
-        {isDeletingCloneSetting}
-        {savedCloneSettings}
-        {selectedCloneSetting}
-        onRefreshCloneSettings={refreshSavedCloneSettings}
-        onBackToCloneSettingsList={handleBackToCloneSettingsList}
-        onStartCreateCloneSetting={handleStartCreateCloneSetting}
-        onCancelCreateCloneSetting={handleCancelCreateCloneSetting}
-        onSaveCloneSetting={handleSaveCloneSetting}
-        onUpdateSelectedCloneSetting={handleUpdateSelectedCloneSetting}
-        onSelectSavedCloneSetting={handleSelectSavedCloneSetting}
-        onDeleteSelectedCloneSetting={handleDeleteSelectedCloneSetting}
-        onDeleteSavedCloneSetting={handleDeleteSavedCloneSetting}
-        onRefAudioChange={handleRefAudioChange}
-        onToggleCloneRefRecording={handleToggleCloneRefRecording}
-      />
-    </form>
-  </div>
-</div>
+<TtsDashboard
+  bind:mode
+  bind:synthesizeInputText={inputText}
+  bind:cloneInputText
+  {status}
+  {modelReady}
+  {isBusy}
+  {audioUrl}
+  {errorMessage}
+  {responseMessage}
+  {lastRequest}
+  {canSubmit}
+  onLoadModel={handleLoadModel}
+  onUnloadModel={handleUnloadModel}
+  onSubmit={handleSynthesize}
+  bind:synthesizeLang={lang}
+  bind:synthesizeSpeed={speed}
+  bind:synthesizeNumStep={numStep}
+  bind:selectedGender
+  bind:selectedAccent
+  bind:selectedPitch
+  bind:selectedAge
+  bind:selectedStyle
+  {instruct}
+  {cloneView}
+  {isRecordMode}
+  bind:isVoiceSheetOpen
+  bind:cloneLang
+  bind:cloneSpeed
+  bind:cloneNumStep
+  bind:cloneSettingName
+  bind:cloneRefText
+  {cloneRefAudioFile}
+  {cloneRefAudioPreviewUrl}
+  {cloneRefAudioInputKey}
+  {cloneRefAudioIsMicrophoneRecording}
+  {isRecordingCloneRefAudio}
+  {recordingElapsedLabel}
+  {microphoneStatusMessage}
+  {microphoneStatusIsError}
+  {isSpeechRecognitionSupported}
+  {canRecordCloneRefAudio}
+  {mediaStream}
+  {savedCloneSettings}
+  {selectedCloneSettingId}
+  {selectedCloneSetting}
+  {isCloneSettingsLoading}
+  {hasLoadedCloneSettings}
+  {isLoadingSelectedCloneSetting}
+  {isSavingCloneSetting}
+  {isUpdatingCloneSetting}
+  {isDeletingCloneSetting}
+  {canSaveCloneSetting}
+  {canUpdateCloneSetting}
+  {canDeleteCloneSetting}
+  {cloneSettingsMessage}
+  {cloneSettingsErrorMessage}
+  onSelectVoice={handleSelectVoice}
+  onStartAddUpload={handleStartAddUpload}
+  onStartAddRecord={handleStartAddRecord}
+  onStartEditVoice={handleStartEditVoice}
+  onSaveCloneSetting={handleSaveCloneSetting}
+  onUpdateCloneSetting={handleUpdateSelectedCloneSetting}
+  onDeleteVoice={handleDeleteSavedCloneSetting}
+  onDeleteSelectedVoice={handleDeleteSelectedCloneSetting}
+  onBackToList={handleBackToList}
+  onRefreshVoices={refreshSavedCloneSettings}
+  onToggleRecording={handleToggleCloneRefRecording}
+  onRefAudioChange={handleRefAudioChange}
+/>
