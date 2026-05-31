@@ -1,9 +1,9 @@
 <script lang="ts">
-  import {UI_TEXT} from "$lib/tts/constants";
-  import type {LastRequest, RequestStatus, TtsMode} from "$lib/tts/types";
-  import AudioResultPanel from "./AudioResultPanel.svelte";
+  import { UI_TEXT } from '$lib/tts/constants';
+  import type { LastRequest, RequestStatus, TtsMode } from '$lib/tts/types';
+  import AudioResultPanel from './AudioResultPanel.svelte';
   import Button from './Button.svelte';
-  import StatusToolbar from "./StatusToolbar.svelte";
+  import StatusToolbar from './StatusToolbar.svelte';
   import TextareaField from './TextareaField.svelte';
 
   type Props = {
@@ -37,18 +37,21 @@
     responseMessage,
     lastRequest,
     onLoadModel,
-    onUnloadModel,
+    onUnloadModel
   }: Props = $props();
-
 </script>
 
-<section class="rounded-xl border border-slate-800 bg-slate-900/70 px-6 pt-4 pb-6 shadow-2xl shadow-slate-950/40 backdrop-blur">
+<section
+  class="rounded-xl border border-slate-800 bg-slate-900/70 px-6 pt-4 pb-6 shadow-2xl shadow-slate-950/40 backdrop-blur"
+>
   <div class="flex flex-col flex-wrap items-start justify-between gap-4">
     <div>
       <p class="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
         {mode === 'clone' ? UI_TEXT.cloneEyebrow : UI_TEXT.synthesisEyebrow}
       </p>
-      <h2 class="mt-2 text-2xl font-semibold text-white">{mode === 'clone' ? UI_TEXT.cloneTitle : UI_TEXT.synthesisTitle}</h2>
+      <h2 class="mt-2 text-2xl font-semibold text-white">
+        {mode === 'clone' ? UI_TEXT.cloneTitle : UI_TEXT.synthesisTitle}
+      </h2>
     </div>
 
     <StatusToolbar {statusLabel} {modelReady} {isBusy} {status} {onLoadModel} {onUnloadModel} />

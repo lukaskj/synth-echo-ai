@@ -6,6 +6,7 @@
     "frontend": "bun run --cwd apps/frontend",
     "frontend:dev": "bun run --cwd apps/frontend dev",
     "frontend:start": "bun run --cwd apps/frontend start",
+    "backend": "bun run --cwd apps/backend",
     "backend:setup": "bun scripts/back-setup.ts",
     "backend:dev": "bun scripts/back-run.ts"
   },
