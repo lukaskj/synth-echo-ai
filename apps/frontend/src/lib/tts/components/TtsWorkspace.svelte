@@ -26,7 +26,6 @@
     LANGUAGES,
     PAGE_DESCRIPTION,
     PAGE_TITLE,
-    REQUEST_STATUS_LABELS,
     UI_TEXT
   } from '$lib/tts/constants';
   import { buildInstruct, revokeObjectUrl } from '$lib/tts/helpers';
@@ -140,7 +139,6 @@
     selectedCloneSetting !== null && !isDeletingCloneSetting && !isBusy
   );
   let canSubmit = $derived(mode === 'clone' ? canClone : canSynthesize);
-  let cloneRefAudioName = $derived(cloneRefAudioFile?.name ?? '');
   let recordingElapsedLabel = $derived(formatElapsedTime(recordingElapsedMs));
   let isSpeechRecognitionSupported = $derived(getSpeechRecognitionConstructor() !== null);
   let canRecordCloneRefAudio = $derived(
@@ -516,7 +514,13 @@
     try {
       await ensureModelLoaded();
       status = 'synthesizing';
-      const audioBlob = await synthesizeAudio({ text: trimmedText, lang, speed, num_step: numStep, instruct });
+      const audioBlob = await synthesizeAudio({
+        text: trimmedText,
+        lang,
+        speed,
+        num_step: numStep,
+        instruct
+      });
       audioUrl = URL.createObjectURL(audioBlob);
       responseMessage = UI_TEXT.synthesisComplete;
       lastRequest = {
@@ -629,9 +633,18 @@
     cloneSettingsErrorMessage = '';
     cloneSettingsMessage = '';
 
-    if (!trimmedName) { cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError; return; }
-    if (!cloneRefAudioFile) { cloneSettingsErrorMessage = UI_TEXT.uploadReferenceAudioError; return; }
-    if (!trimmedRefText) { cloneSettingsErrorMessage = UI_TEXT.enterReferenceTextError; return; }
+    if (!trimmedName) {
+      cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError;
+      return;
+    }
+    if (!cloneRefAudioFile) {
+      cloneSettingsErrorMessage = UI_TEXT.uploadReferenceAudioError;
+      return;
+    }
+    if (!trimmedRefText) {
+      cloneSettingsErrorMessage = UI_TEXT.enterReferenceTextError;
+      return;
+    }
 
     isSavingCloneSetting = true;
     try {
@@ -746,7 +759,10 @@
     if (!selectedCloneSetting) return;
     const activeCloneSetting = selectedCloneSetting;
     const trimmedName = cloneSettingName.trim();
-    if (!trimmedName) { cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError; return; }
+    if (!trimmedName) {
+      cloneSettingsErrorMessage = UI_TEXT.cloneSettingNameError;
+      return;
+    }
 
     isUpdatingCloneSetting = true;
     cloneSettingsMessage = '';
@@ -759,7 +775,13 @@
         speed: cloneSpeed,
         numStep: cloneNumStep
       });
-      selectedCloneSetting = { ...activeCloneSetting, name: trimmedName, lang: cloneLang, speed: cloneSpeed, num_step: cloneNumStep };
+      selectedCloneSetting = {
+        ...activeCloneSetting,
+        name: trimmedName,
+        lang: cloneLang,
+        speed: cloneSpeed,
+        num_step: cloneNumStep
+      };
       cloneSettingName = trimmedName;
       savedCloneSettings = savedCloneSettings.map((s) =>
         s.id === activeCloneSetting.id
@@ -768,7 +790,8 @@
       );
       cloneSettingsMessage = UI_TEXT.cloneSettingUpdatedSuccess;
     } catch (error) {
-      cloneSettingsErrorMessage = error instanceof Error ? error.message : UI_TEXT.updateCloneSettingFailed;
+      cloneSettingsErrorMessage =
+        error instanceof Error ? error.message : UI_TEXT.updateCloneSettingFailed;
     } finally {
       isUpdatingCloneSetting = false;
     }
@@ -803,7 +826,8 @@
       // Go back to list after delete
       cloneView = 'list';
     } catch (error) {
-      cloneSettingsErrorMessage = error instanceof Error ? error.message : UI_TEXT.deleteCloneSettingFailed;
+      cloneSettingsErrorMessage =
+        error instanceof Error ? error.message : UI_TEXT.deleteCloneSettingFailed;
     } finally {
       isDeletingCloneSetting = false;
     }
@@ -863,7 +887,6 @@
   {selectedCloneSetting}
   {isCloneSettingsLoading}
   {hasLoadedCloneSettings}
-  {isLoadingSelectedCloneSetting}
   {isSavingCloneSetting}
   {isUpdatingCloneSetting}
   {isDeletingCloneSetting}
