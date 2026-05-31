@@ -1,42 +1,52 @@
-# sv
+# Frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Static SvelteKit frontend for the OmniVoice text-to-speech and voice cloning UI.
 
-## Creating a project
+## Commands
 
-If you're seeing this, you've probably already done this step. Congrats!
+Preferred from the repo root:
 
-```sh
-# create a new project
-npx sv create my-app
+```bash
+bun run frontend:dev
+bun run --cwd apps/frontend lint
+bun run --cwd apps/frontend check
+bun run --cwd apps/frontend build
+bun run --cwd apps/frontend format
+bun run --cwd apps/frontend test:unit -- --run
 ```
 
-To recreate this project with the same configuration:
+Run a single test file:
 
-```sh
-# recreate this project
-bun x sv@0.15.3 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:typography" sveltekit-adapter="adapter:static" --install bun frontend
+```bash
+bun run --cwd apps/frontend test:unit -- --run path/to/spec.ts
 ```
 
-## Developing
+Preview the built app:
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+```bash
+bun run --cwd apps/frontend preview
 ```
 
-## Building
+## Structure
 
-To create a production version of your app:
+- `src/routes/+page.svelte` is only a thin wrapper.
+- The main app UI lives in `src/lib/tts/components/TtsWorkspace.svelte`.
+- Frontend API calls are centralized in `src/lib/tts/api.ts`.
+- API paths and shared UI constants live in `src/lib/tts/constants.ts`.
+- URL and error helpers live in `src/lib/tts/helpers.ts`.
 
-```sh
-npm run build
-```
+## Runtime Notes
 
-You can preview the production build with `npm run preview`.
+- The app is intentionally static: `@sveltejs/adapter-static` is enabled and `src/routes/+layout.ts` sets `prerender = true`.
+- `src/routes/api/mock-tts/+server.ts` is prerendered and returns canned audio for UI work when the Flask backend is unavailable.
+- Svelte 5 runes mode is forced for app code in `svelte.config.js`.
+- Browser requests go directly to Flask via `PUBLIC_BACKEND_BASE_URL`; the default is `http://127.0.0.1:5000`.
+- Tailwind is configured through the Vite plugin and `src/routes/layout.css`; there is no `tailwind.config.*` file.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Testing Notes
+
+- Vitest is split by project in `vite.config.ts`.
+- `*.svelte.{test,spec}.*` runs in Playwright/Chromium.
+- Non-Svelte tests run in Node.
+- Browser specs require Playwright browsers to be installed.
+- Current tests under `src/lib/vitest-examples/` are starter examples, not meaningful app coverage.

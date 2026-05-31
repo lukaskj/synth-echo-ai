@@ -1,61 +1,75 @@
 # @lukaskj/omni-clone
 
-Monorepo scaffold for a future TTS and voice cloning project using Electrobun for the desktop frontend and Flask for the backend API.
+Monorepo for an OmniVoice-based text-to-speech and voice cloning app with a SvelteKit frontend and Flask backend.
 
-## Frontend
+## Repo Layout
 
-Install frontend dependencies:
+- `apps/frontend`: static SvelteKit app.
+- `apps/backend`: Flask API and Python model integration.
+- `scripts/back-setup.ts`: creates or refreshes the backend virtual environment and installs `requirements.txt`.
+- `scripts/back-run.ts`: runs the backend with the venv Python.
+
+## Quick Start
+
+`bun install` must be run from the repo root. It also runs `bun run backend:setup`, so `python` must be available on `PATH`.
 
 ```bash
 bun install
 ```
 
-Run the Electrobun app in watch mode:
+Run the backend and frontend in separate terminals:
 
 ```bash
-bun run dev:frontend
+bun run backend:dev
 ```
-
-## Backend
-Install Pytorch:
-```bash
-# CUDA
-pip install torch==2.11.0+cu128 torchaudio==2.11.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
-```
-
-Install omnivoice
-```
-pip install omnivoice
-```
-
-From `apps/backend/`, create the virtual environment:
 
 ```bash
-python -m venv .venv
+bun run frontend:dev
 ```
 
-Activate it:
+Frontend dev server: Vite default host/port.
+
+Backend API base URL: `http://127.0.0.1:5000`
+
+## Common Commands
+
+### Frontend
 
 ```bash
-source .venv/bin/activate
+bun run frontend:dev
+bun run --cwd apps/frontend lint
+bun run --cwd apps/frontend check
+bun run --cwd apps/frontend build
+bun run --cwd apps/frontend test:unit -- --run
 ```
 
-On Windows:
-
-```powershell
-.venv\Scripts\activate
-```
-
-Install dependencies:
+Run a single frontend test file:
 
 ```bash
-pip install -r requirements.txt
+bun run --cwd apps/frontend test:unit -- --run path/to/spec.ts
 ```
 
-Run the Flask server from `apps/backend/`:
+### Backend
 
 ```bash
-python app.py
+bun run backend:setup
+bun run backend:dev
 ```
 
-The backend listens on `http://127.0.0.1:5000` and exposes `GET /api/hello`, which returns `Hello, World!`.
+Lightweight backend verification from `apps/backend`:
+
+```bash
+python -m compileall app.py tts_backend
+```
+
+## Runtime Notes
+
+- Frontend browser code calls Flask directly via `PUBLIC_BACKEND_BASE_URL`. If unset, it defaults to `http://127.0.0.1:5000`.
+- Backend routes are mounted under `/api/v1`.
+- Voice clone settings persist in `apps/backend/data/clone_settings.sqlite3` and uploaded reference audio persists in `apps/backend/storage/clone_settings/`.
+- The backend currently hardcodes `MODEL_DEVICE_MAP = "cuda:0"` in `apps/backend/tts_backend/constants.py`, so CPU-only development will fail unless that is changed.
+
+## More Detail
+
+- Frontend details: [`apps/frontend/README.md`](apps/frontend/README.md)
+- Backend details: [`apps/backend/README.md`](apps/backend/README.md)
