@@ -14,8 +14,9 @@ class InvalidAudioUploadError(ValueError):
 
 
 class AudioStorage:
-    def __init__(self, storage_dir: Path) -> None:
-        self._storage_dir = storage_dir
+    def __init__(self, base_dir: Path, storage_dir: Path) -> None:
+        self._base_dir = base_dir.resolve()
+        self._storage_dir = storage_dir.resolve()
         self._storage_dir.mkdir(parents=True, exist_ok=True)
 
     def save_persistent_upload(self, uploaded_file) -> str:
@@ -24,7 +25,7 @@ class AudioStorage:
         uploaded_file.save(target_path)
 
         self._validate_non_empty_file(target_path)
-        return str(target_path)
+        return self._to_relative_path(target_path)
 
     def save_temporary_upload(self, uploaded_file) -> str:
         suffix = self._get_valid_suffix(uploaded_file.filename)
@@ -34,10 +35,24 @@ class AudioStorage:
         self._validate_non_empty_file(Path(temp_path))
         return temp_path
 
-    @staticmethod
-    def delete_file(path: str) -> None:
+    def resolve_path(self, path: str) -> Path:
+        candidate = Path(path)
+        if candidate.is_absolute():
+            if candidate.exists():
+                return candidate
+
+            remapped_path = self._try_remap_legacy_storage_path(path)
+            return remapped_path if remapped_path is not None else candidate
+
+        normalized_path = path.replace("\\", "/")
+        while normalized_path.startswith("./"):
+            normalized_path = normalized_path[2:]
+
+        return (self._base_dir / normalized_path).resolve()
+
+    def delete_file(self, path: str) -> None:
         try:
-            Path(path).unlink(missing_ok=True)
+            self.resolve_path(path).unlink(missing_ok=True)
         except OSError:
             pass
 
@@ -49,10 +64,22 @@ class AudioStorage:
             raise InvalidAudioUploadError(f"`ref_audio` must use one of these file types: {supported}.")
         return suffix
 
-    @staticmethod
-    def _validate_non_empty_file(path: Path) -> None:
+    def _validate_non_empty_file(self, path: Path) -> None:
         if path.stat().st_size > 0:
             return
 
-        AudioStorage.delete_file(str(path))
+        self.delete_file(str(path))
         raise InvalidAudioUploadError("`ref_audio` must not be empty.")
+
+    def _to_relative_path(self, path: Path) -> str:
+        return f"./{path.resolve().relative_to(self._base_dir).as_posix()}"
+
+    def _try_remap_legacy_storage_path(self, path: str) -> Path | None:
+        normalized_path = path.replace("\\", "/")
+        marker = "/storage/clone_settings/"
+        marker_index = normalized_path.lower().find(marker)
+        if marker_index == -1:
+            return None
+
+        relative_storage_path = normalized_path[marker_index + 1 :]
+        return (self._base_dir / relative_storage_path).resolve()

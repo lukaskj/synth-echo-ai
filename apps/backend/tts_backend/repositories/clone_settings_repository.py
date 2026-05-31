@@ -39,6 +39,8 @@ class CloneSettingsRepository:
                     "ALTER TABLE clone_settings ADD COLUMN is_microphone_recording INTEGER NOT NULL DEFAULT 0"
                 )
 
+            self._migrate_ref_audio_paths(connection)
+
     def create(self, request: CloneSettingCreateRequest, ref_audio_path: str) -> int:
         with self._connect() as connection:
             cursor = connection.execute(
@@ -122,6 +124,34 @@ class CloneSettingsRepository:
         connection = sqlite3.connect(self._database_path)
         connection.row_factory = sqlite3.Row
         return connection
+
+    def _migrate_ref_audio_paths(self, connection: sqlite3.Connection) -> None:
+        rows = connection.execute("SELECT id, ref_audio_path FROM clone_settings").fetchall()
+        for row in rows:
+            normalized_path = self._normalize_ref_audio_path(str(row["ref_audio_path"]))
+            if normalized_path is None or normalized_path == row["ref_audio_path"]:
+                continue
+
+            connection.execute(
+                "UPDATE clone_settings SET ref_audio_path = ? WHERE id = ?",
+                (normalized_path, int(row["id"])),
+            )
+
+    @staticmethod
+    def _normalize_ref_audio_path(ref_audio_path: str) -> str | None:
+        normalized_path = ref_audio_path.replace("\\", "/")
+        if normalized_path.startswith("./storage/clone_settings/"):
+            return normalized_path
+
+        if normalized_path.startswith("storage/clone_settings/"):
+            return f"./{normalized_path}"
+
+        marker = "/storage/clone_settings/"
+        marker_index = normalized_path.lower().find(marker)
+        if marker_index == -1:
+            return None
+
+        return f".{normalized_path[marker_index:]}"
 
     @staticmethod
     def _row_to_clone_setting(row: sqlite3.Row) -> CloneSetting:

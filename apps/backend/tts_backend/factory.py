@@ -27,7 +27,7 @@ def create_app() -> Flask:
     clone_settings_repository = CloneSettingsRepository(backend_root / "data" / "clone_settings.sqlite3")
     clone_settings_service = CloneSettingsService(clone_settings_repository)
     clone_settings_service.initialize()
-    audio_storage = AudioStorage(backend_root / "storage" / "clone_settings")
+    audio_storage = AudioStorage(backend_root, backend_root / "storage" / "clone_settings")
 
     app.extensions[MODEL_SERVICE_EXTENSION_KEY] = model_service
     app.extensions[CLONE_SETTINGS_SERVICE_EXTENSION_KEY] = clone_settings_service

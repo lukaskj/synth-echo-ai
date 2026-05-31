@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from http import HTTPStatus
-from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, jsonify, request, send_file
@@ -104,6 +103,7 @@ def create_api_blueprint(
                 clone_request = _build_clone_request_from_saved_setting(
                     request.form,
                     clone_settings_service,
+                    audio_storage,
                     setting_id,
                 )
             else:
@@ -198,7 +198,7 @@ def create_api_blueprint(
                 str(exc),
             )
 
-        audio_path = Path(setting.ref_audio_path)
+        audio_path = audio_storage.resolve_path(setting.ref_audio_path)
         if not audio_path.is_file():
             return _json_error(
                 "Clone setting reference audio not found.",
@@ -371,6 +371,7 @@ def _serialize_clone_setting(setting: CloneSetting) -> dict[str, Any]:
 def _build_clone_request_from_saved_setting(
     payload: Any,
     clone_settings_service: CloneSettingsService,
+    audio_storage: AudioStorage,
     setting_id: str,
 ) -> CloneRequest:
     try:
@@ -391,7 +392,7 @@ def _build_clone_request_from_saved_setting(
 
     return CloneRequest(
         text=text.strip(),
-        ref_audio_path=setting.ref_audio_path,
+        ref_audio_path=str(audio_storage.resolve_path(setting.ref_audio_path)),
         ref_text=setting.ref_text,
         speed=speed,
         lang=lang,
