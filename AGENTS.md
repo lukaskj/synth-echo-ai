@@ -33,6 +33,11 @@
 - `apps/frontend/src/routes/api/mock-tts/+server.ts` is a prerendered mock endpoint for UI work when the Flask backend is unavailable.
 - Vitest is split by project in `vite.config.ts`: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, non-Svelte tests run in Node. Browser specs need Playwright browsers installed.
 - Current frontend tests are only starter examples under `apps/frontend/src/lib/vitest-examples/`; they are not meaningful app coverage.
+- Pages should primarily compose components and manage page-level concerns.
+- Extract distinct UI sections into separate components by default.
+- Avoid large blocks inside page files.
+- If a page contains multiple visual sections, create separate components for them.
+- Favor separation of concerns, readability, and reusability over minimizing the number of files.
 
 ## Backend Gotchas
 - Flask routes are mounted under `/api/v1`, not `/api`.
