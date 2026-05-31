@@ -5,6 +5,10 @@
   };
 
   let { src, preload = "auto" }: Props = $props();
+
+	function stopEventPropagation(event: Event) {
+		event.stopPropagation();
+	}
 </script>
 
-<audio controls {preload} {src} class="m-0 py-3 w-full"></audio>
+<audio controls {preload} {src} class="m-0 w-full py-3" onclick={stopEventPropagation} onkeydown={stopEventPropagation}></audio>

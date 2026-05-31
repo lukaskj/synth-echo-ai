@@ -2,7 +2,9 @@
   import {UI_TEXT} from "$lib/tts/constants";
   import type {LastRequest, RequestStatus, TtsMode} from "$lib/tts/types";
   import AudioResultPanel from "./AudioResultPanel.svelte";
+  import Button from './Button.svelte';
   import StatusToolbar from "./StatusToolbar.svelte";
+  import TextareaField from './TextareaField.svelte';
 
   type Props = {
     mode: TtsMode;
@@ -52,32 +54,27 @@
     <StatusToolbar {statusLabel} {modelReady} {isBusy} {status} {onLoadModel} {onUnloadModel} />
   </div>
 
-  <label class="mt-3 block text-sm font-medium text-slate-200" for="tts-input">
-    {mode === 'clone' ? UI_TEXT.cloneScriptLabel : UI_TEXT.scriptLabel}
-  </label>
   {#if mode === 'clone'}
-    <textarea
+    <TextareaField
       id="tts-input"
       bind:value={cloneInputText}
-      rows="7"
+      label={UI_TEXT.cloneScriptLabel}
+      className="mt-3"
+      rows={7}
       placeholder={UI_TEXT.cloneScriptPlaceholder}
-      class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-3 text-base leading-7 text-slate-100 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-400/30"
-    ></textarea>
+    />
   {:else}
-    <textarea
+    <TextareaField
       id="tts-input"
       bind:value={synthesizeInputText}
-      rows="7"
+      label={UI_TEXT.scriptLabel}
+      className="mt-3"
+      rows={7}
       placeholder={UI_TEXT.scriptPlaceholder}
-      class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-3 text-base leading-7 text-slate-100 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-400/30"
-    ></textarea>
+    />
   {/if}
 
-  <button
-    type="submit"
-    disabled={!canSubmit}
-    class="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-violet-400 px-4 py-3 text-base font-semibold text-slate-950 transition hover:bg-violet-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
-  >
+  <Button type="submit" variant="primary" size="large" class="mt-4 w-full" disabled={!canSubmit}>
     {#if status === 'synthesizing'}
       {UI_TEXT.synthesizing}
     {:else if status === 'cloning'}
@@ -85,7 +82,7 @@
     {:else}
       {mode === 'clone' ? UI_TEXT.cloneVoice : UI_TEXT.generateSpeech}
     {/if}
-  </button>
+  </Button>
 
   <AudioResultPanel {status} {audioUrl} {errorMessage} {responseMessage} {lastRequest} />
 </section>

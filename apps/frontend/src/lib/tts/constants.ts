@@ -102,7 +102,7 @@ export const AGE_OPTIONS: VoiceCategoryOption[] = [
 ];
 
 export const STYLE_OPTIONS: VoiceCategoryOption[] = [
-  {value: "", label: "None", description: "No extra style instruction."},
+  {value: "", label: "Normal", description: "No extra style instruction."},
   {value: "whisper", label: "Whisper", description: "Soft whisper delivery"},
 ];
 
@@ -198,7 +198,6 @@ export const UI_TEXT = {
   resultLanguage: "Language",
   resultSpeed: "Speed",
   resultSteps: "Steps",
-  resultCharacters: "Characters",
   resultMode: "Mode",
   resultReferenceAudio: "Reference audio",
   resultReferenceText: "Reference text",
