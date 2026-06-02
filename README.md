@@ -1,10 +1,8 @@
 # SynthEcho AI
 
-Voice synthesis app for creating audio from feature-driven text instructions or from a cloned voice based on reference audio.
+A full-stack wrapper around [OmniVoice](https://github.com/k2-fsa/OmniVoice) ([Hugging Face](https://huggingface.co/k2-fsa/OmniVoice)) for creating audio from feature-driven text instructions or from a cloned voice based on reference audio. OmniVoice handles all synthesis and zero-shot voice cloning and supports English, Chinese, Japanese, Portuguese, Spanish, French, German, Italian, and Russian.
 
-It is designed as a full local stack: a SvelteKit frontend gives you a simple workspace to interact with the app, while the Flask backend handles model loading, speech synthesis, and voice clone settings.
-
-If you want to experiment with text-to-speech, prototype voice workflows, or explore local voice cloning, this repo gives you the main pieces in one place.
+It is designed as a full local stack: a SvelteKit frontend gives you a simple workspace to interact with the app, while the Flask backend wraps the OmniVoice model to handle model loading, speech synthesis, and voice clone settings.
 
 ## Requirements
 - [Python 3.10+](https://www.python.org/downloads/)
@@ -28,8 +26,11 @@ source ./apps/backend/.venv/bin/activate
 ```
 
 ```powershell
-# Windows
+# Windows PowerShell
 .\apps\backend\.venv\Scripts\Activate.ps1
+
+# Windows bash
+source ./apps/backend/.venv/Scripts/activate
 ```
 
 3. Install PyTorch manually into the activated backend virtual environment.
@@ -46,7 +47,7 @@ pip install torch torchaudio
 pip install torch==2.11.0+cu128 torchaudio==2.11.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
 
 # Intel Arc / XPU
-pip install torch==2.11.0+cu128 torchaudio==2.11.0+cu128 --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+pip install torch torchaudio --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 ```
 
 See the [PyTorch install guide](https://pytorch.org/get-started/locally/) for the correct wheel for your hardware. The backend chooses the device in `apps/backend/tts_backend/config.py`: CUDA first, then MPS, then CPU.
@@ -61,7 +62,7 @@ bun run backend:dev
 bun run frontend:dev
 ```
 
-Backend API base URL: `http://127.0.0.1:5000`
+Open `http://localhost:5173` in your browser
 
 ## Common Commands
 

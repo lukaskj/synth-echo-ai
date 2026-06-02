@@ -6,7 +6,7 @@ import type {
   VoiceCategoryOption
 } from './types';
 
-export const PAGE_TITLE = 'OmniVoice Studio';
+export const PAGE_TITLE = 'SynthEcho AI';
 export const PAGE_DESCRIPTION = 'Generate speech with a Flask-backed OmniVoice synthesis workflow.';
 
 export const DEFAULT_BACKEND_BASE_URL = 'http://127.0.0.1:5000';
