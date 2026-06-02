@@ -33,14 +33,17 @@
 - `apps/frontend/src/routes/api/mock-tts/+server.ts` is the prerendered mock endpoint for UI work without the Flask backend.
 - Tailwind is configured through `@tailwindcss/vite` plus `src/routes/layout.css`; there is no `tailwind.config.*`.
 - Vitest is split in `vite.config.ts`: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, everything else runs in Node. Browser specs need Playwright browsers installed.
+- `vite.config.ts` sets `expect: { requireAssertions: true }`; every test must include at least one assertion or it will fail.
+- No meaningful app test files exist yet; `src/lib/vitest-examples/` has only starter examples.
 
 ## Backend Gotchas
 - Flask routes are mounted under `/api/v1`, not `/api`.
 - Model state matters: a second `/load` while loading returns `409`, and `/synthesize` / `/clone` return `409` until the model is loaded.
 - Clone settings persist in `apps/backend/data/clone_settings.sqlite3`; uploaded reference audio persists in `apps/backend/storage/clone_settings/`.
 - There is no standalone migration system. Schema creation and the inline column/path migration live in `apps/backend/tts_backend/repositories/clone_settings_repository.py`.
-- The backend does not auto-load `.env` files.
-- Device selection lives in `apps/backend/tts_backend/config.py`: CUDA first, then MPS, then CPU. Do not rely on the old hardcoded-device assumption.
+- Device selection lives in `apps/backend/tts_backend/config.py`. Priority is CUDA > MPS > CPU: CUDA is checked first and returned immediately if available; MPS is only used if CUDA is unavailable. On machines with both, CUDA wins.
+- `POST /api/v1/load` triggers a `OmniVoice.from_pretrained("k2-fsa/OmniVoice", ...)` download on first use. This requires internet access and can take several minutes.
+- `ref_audio` and `ref_text` are immutable after a clone setting is created; the update endpoint (`POST /settings/update-clone/<id>`) rejects both fields with `400`.
 
 ## Runtime Artifacts
 - Ignore `apps/backend/.venv/`, `apps/backend/data/`, `apps/backend/storage/`, `apps/frontend/.svelte-kit/`, `apps/frontend/build/`, `apps/frontend/dist/`, `apps/frontend/artifacts/`, and `node_modules/`.
