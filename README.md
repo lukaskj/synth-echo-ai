@@ -1,6 +1,14 @@
-# @lukaskj/omni-clone
+# SynthEcho AI
 
-Monorepo for an OmniVoice-based text-to-speech and voice cloning app with a static SvelteKit frontend and Flask backend.
+Voice synthesis app for creating audio from feature-driven text instructions or from a cloned voice based on reference audio.
+
+It is designed as a full local stack: a SvelteKit frontend gives you a simple workspace to interact with the app, while the Flask backend handles model loading, speech synthesis, and voice clone settings.
+
+If you want to experiment with text-to-speech, prototype voice workflows, or explore local voice cloning, this repo gives you the main pieces in one place.
+
+## Requirements
+- [Python 3.10+](https://www.python.org/downloads/)
+- [Bun](https://github.com/oven-sh/bun)
 
 ## Quick Start
 
@@ -14,14 +22,14 @@ bun install
 
 2. Activate the backend virtual environment.
 
-```powershell
-# Windows
-.\apps\backend\.venv\Scripts\Activate.ps1
-```
-
 ```bash
 # macOS/Linux
 source ./apps/backend/.venv/bin/activate
+```
+
+```powershell
+# Windows
+.\apps\backend\.venv\Scripts\Activate.ps1
 ```
 
 3. Install PyTorch manually into the activated backend virtual environment.

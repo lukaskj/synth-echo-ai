@@ -1,5 +1,5 @@
 {
-  "name": "@lukaskj/omni-clone",
+  "name": "@lukaskj/synth-echo-ai",
   "private": true,
   "scripts": {
     "postinstall": "bun run backend:setup",
