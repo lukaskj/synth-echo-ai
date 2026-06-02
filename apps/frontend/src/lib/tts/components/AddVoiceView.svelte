@@ -7,6 +7,7 @@
   import { Slider } from '$lib/components/ui/slider/index.js';
   import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
   import UploadIcon from 'lucide-svelte/icons/upload';
+  import AudioPlayer from '$lib/tts/components/AudioPlayer.svelte';
   import { LANGUAGES, UI_TEXT, DEFAULT_FORM_STATE } from '$lib/tts/constants';
 
   let {
@@ -95,7 +96,7 @@
       <Label for="add-voice-audio">{UI_TEXT.refAudioLabel}</Label>
       <div class="rounded-md border border-dashed border-zinc-600 p-3">
         {#if cloneRefAudioPreviewUrl}
-          <audio controls src={cloneRefAudioPreviewUrl} class="mb-2 w-full" preload="auto"> </audio>
+          <AudioPlayer src={cloneRefAudioPreviewUrl} preload="auto" />
         {/if}
         <label
           for="add-voice-audio"

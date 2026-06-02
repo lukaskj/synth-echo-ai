@@ -35,6 +35,8 @@ export type ApiMessageResponse = {
   message?: string;
   error?: string;
   id?: number;
+  state?: string;
+  device?: string | null;
 };
 
 export type SpeechRecognitionAlternative = {

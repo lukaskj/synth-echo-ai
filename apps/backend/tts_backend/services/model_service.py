@@ -5,25 +5,10 @@ from enum import Enum
 from threading import Lock
 from typing import Any
 
-from ..constants import MODEL_DEVICE_MAP, MODEL_REPOSITORY
+from ..constants import MODEL_REPOSITORY
 from ..schemas import CloneRequest, SynthesisRequest
-
-
-class ModelState(str, Enum):
-    UNLOADED = "unloaded"
-    LOADING = "loading"
-    LOADED = "loaded"
-
-
-class LoadResult(str, Enum):
-    LOADED = "loaded"
-    ALREADY_LOADED = "already_loaded"
-
-
-class UnloadResult(str, Enum):
-    UNLOADED = "unloaded"
-    NOT_LOADED = "not_loaded"
-    LOADING = "loading"
+from ..enums import ModelState, LoadResult, UnloadResult, Device
+from ..config import Config
 
 
 class ModelLoadInProgressError(RuntimeError):
@@ -38,11 +23,16 @@ class ModelService:
     def __init__(self) -> None:
         self._model: Any | None = None
         self._state = ModelState.UNLOADED
+        self._device: Device | None = None
         self._lock = Lock()
 
     def get_state(self) -> ModelState:
         with self._lock:
             return self._state
+
+    def get_device(self) -> Device | None:
+        with self._lock:
+            return self._device
 
     def load(self) -> LoadResult:
         with self._lock:
@@ -55,7 +45,7 @@ class ModelService:
             self._state = ModelState.LOADING
 
         try:
-            model = self._create_model()
+            model, device = self._create_model()
         except Exception:
             with self._lock:
                 self._state = ModelState.UNLOADED
@@ -64,6 +54,7 @@ class ModelService:
         with self._lock:
             self._model = model
             self._state = ModelState.LOADED
+            self._device = device
 
         return LoadResult.LOADED
 
@@ -74,13 +65,15 @@ class ModelService:
 
             if self._model is None:
                 self._state = ModelState.UNLOADED
+                self._device = None
                 return UnloadResult.NOT_LOADED
 
             self._model = None
             self._state = ModelState.UNLOADED
+            self._device = None
 
         gc.collect()
-        self._clear_cuda_cache()
+        self._clear_cache()
         return UnloadResult.UNLOADED
 
     def synthesize(self, request: SynthesisRequest) -> tuple[Any, int]:
@@ -119,23 +112,33 @@ class ModelService:
             return audio[0], self._model.sampling_rate
 
     @staticmethod
-    def _create_model() -> Any:
+    def _create_model() -> tuple[Any, Device]:
         import torch
         from omnivoice import OmniVoice
 
-        return OmniVoice.from_pretrained(
+        device, dtype, model_device = Config.resolve_model_device_dtype()
+        print(f"Loading model on {device} with dtype {dtype}...")
+
+        model = OmniVoice.from_pretrained(
             MODEL_REPOSITORY,
-            device_map=MODEL_DEVICE_MAP,
-            dtype=torch.float16,
+            device_map=model_device,
+            dtype=dtype,
         )
+        return model, device
 
     @staticmethod
-    def _clear_cuda_cache() -> None:
+    def _clear_cache() -> None:
         try:
             import torch
+
+            if torch.accelerator.is_available():
+              torch.accelerator.memory.empty_cache()
+              return
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
         except ImportError:
             pass

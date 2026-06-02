@@ -1,16 +1,17 @@
 # AGENTS.md
 
-## Trust Sources Of Truth
-- `README.md`, `apps/frontend/README.md`, and `apps/backend/README.md` are maintained entry docs, but if they conflict with code or scripts, trust root `package.json`, `scripts/back-*.ts`, `apps/frontend/package.json`, `apps/frontend/{vite.config.ts,svelte.config.js,eslint.config.js}`, and backend code under `apps/backend/tts_backend/`.
-- Run Bun from the repo root. `bun install` triggers `bun run backend:setup`, so it requires `python` on `PATH` and creates or refreshes `apps/backend/.venv`.
-- When changes affect setup, commands, architecture, env behavior, or user-facing workflows, update the relevant README files in the same change.
+## Sources Of Truth
+- Prefer executable sources over prose: root `package.json`, `scripts/back-*.ts`, `apps/frontend/package.json`, `apps/frontend/{vite.config.ts,svelte.config.js,eslint.config.js}`, and backend code under `apps/backend/tts_backend/`.
+- Run Bun from the repo root. `bun install` runs `bun run backend:setup`, so `python` must be on `PATH` and `apps/backend/.venv` will be created or refreshed.
+- `bun run backend:setup` installs `apps/backend/requirements.txt` only. It does not install PyTorch, so keep the manual `torch` / `torchaudio` install step in the READMEs if setup changes.
+- When setup, commands, env behavior, or app structure changes, update `README.md` and the relevant app README in the same change.
 
 ## Repo Shape
 - Repo = static SvelteKit frontend in `apps/frontend` plus Flask API in `apps/backend`.
-- Only `apps/frontend` is a Bun workspace package. Manage backend tasks through the root scripts instead of treating `apps/backend` as a workspace package.
-- `apps/frontend/src/routes/+page.svelte` is just a wrapper; the real UI lives in `apps/frontend/src/lib/tts/components/TtsWorkspace.svelte` and related code under `apps/frontend/src/lib/tts/`.
-- Frontend API access is centralized in `apps/frontend/src/lib/tts/api.ts`; paths/constants live in `apps/frontend/src/lib/tts/constants.ts` and URL helpers in `apps/frontend/src/lib/tts/helpers.ts`.
-- `apps/backend/app.py` is only the Flask boot entrypoint. Actual app wiring is in `apps/backend/tts_backend/factory.py`; route behavior is in `apps/backend/tts_backend/routes.py`.
+- Only `apps/frontend` is a Bun workspace package. Use the root backend scripts instead of treating `apps/backend` as a workspace package.
+- `apps/frontend/src/routes/+page.svelte` is a thin wrapper; the real UI lives under `apps/frontend/src/lib/tts/`, with `components/TtsWorkspace.svelte` as the top-level feature component.
+- Frontend HTTP calls are centralized in `apps/frontend/src/lib/tts/api.ts`; shared API paths/default backend URL live in `constants.ts`, and URL/error helpers live in `helpers.ts`.
+- `apps/backend/app.py` only boots Flask. App wiring is in `apps/backend/tts_backend/factory.py`; route behavior is in `apps/backend/tts_backend/routes.py`.
 
 ## Commands
 - Frontend dev: `bun run frontend:dev`
@@ -26,26 +27,20 @@
 - Do not use `bun run frontend:start`; the root script points to a nonexistent `apps/frontend start` script.
 
 ## Frontend Gotchas
-- Keep the frontend static unless you intentionally change deployment assumptions: `@sveltejs/adapter-static` is enabled, `src/routes/+layout.ts` sets `prerender = true`, and `svelte.config.js` prerenders `'/api/mock-tts'`.
+- Keep the frontend static unless deployment assumptions are changing: `@sveltejs/adapter-static` is enabled, `src/routes/+layout.ts` sets `prerender = true`, and `svelte.config.js` prerenders `'/api/mock-tts'`.
 - App code is forced into Svelte 5 runes mode in `apps/frontend/svelte.config.js`; do not introduce legacy Svelte APIs.
 - Browser code talks directly to Flask via `PUBLIC_BACKEND_BASE_URL`; default is `http://127.0.0.1:5000`.
-- Tailwind is configured through the Vite plugin plus `src/routes/layout.css`; there is no `tailwind.config.*`.
-- `apps/frontend/src/routes/api/mock-tts/+server.ts` is a prerendered mock endpoint for UI work when the Flask backend is unavailable.
-- Vitest is split by project in `vite.config.ts`: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, non-Svelte tests run in Node. Browser specs need Playwright browsers installed.
-- Current frontend tests are only starter examples under `apps/frontend/src/lib/vitest-examples/`; they are not meaningful app coverage.
-- Pages should primarily compose components and manage page-level concerns.
-- Extract distinct UI sections into separate components by default.
-- Avoid large blocks inside page files.
-- If a page contains multiple visual sections, create separate components for them.
-- Favor separation of concerns, readability, and reusability over minimizing the number of files.
+- `apps/frontend/src/routes/api/mock-tts/+server.ts` is the prerendered mock endpoint for UI work without the Flask backend.
+- Tailwind is configured through `@tailwindcss/vite` plus `src/routes/layout.css`; there is no `tailwind.config.*`.
+- Vitest is split in `vite.config.ts`: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, everything else runs in Node. Browser specs need Playwright browsers installed.
 
 ## Backend Gotchas
 - Flask routes are mounted under `/api/v1`, not `/api`.
-- Model state matters: a second `/load` while loading returns `409`, and `/synthesize` and `/clone` also return `409` until the model is loaded.
+- Model state matters: a second `/load` while loading returns `409`, and `/synthesize` / `/clone` return `409` until the model is loaded.
 - Clone settings persist in `apps/backend/data/clone_settings.sqlite3`; uploaded reference audio persists in `apps/backend/storage/clone_settings/`.
-- There is no migration system. Schema creation and the inline column/path migration live in `apps/backend/tts_backend/repositories/clone_settings_repository.py`.
-- The backend does not auto-load `.env`; `python-dotenv` is not installed.
-- `apps/backend/tts_backend/constants.py` hardcodes `MODEL_DEVICE_MAP = "cuda:0"`; CPU-only development fails unless that code is changed.
+- There is no standalone migration system. Schema creation and the inline column/path migration live in `apps/backend/tts_backend/repositories/clone_settings_repository.py`.
+- The backend does not auto-load `.env` files.
+- Device selection lives in `apps/backend/tts_backend/config.py`: CUDA first, then MPS, then CPU. Do not rely on the old hardcoded-device assumption.
 
-## Ignore
+## Runtime Artifacts
 - Ignore `apps/backend/.venv/`, `apps/backend/data/`, `apps/backend/storage/`, `apps/frontend/.svelte-kit/`, `apps/frontend/build/`, `apps/frontend/dist/`, `apps/frontend/artifacts/`, and `node_modules/`.

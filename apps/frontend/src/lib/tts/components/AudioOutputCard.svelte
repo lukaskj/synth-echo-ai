@@ -2,6 +2,7 @@
   import * as Card from '$lib/components/ui/card/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { Separator } from '$lib/components/ui/separator/index.js';
+  import AudioPlayer from '$lib/tts/components/AudioPlayer.svelte';
   import MusicIcon from 'lucide-svelte/icons/music';
   import AlertCircleIcon from 'lucide-svelte/icons/alert-circle';
   import CheckCircleIcon from 'lucide-svelte/icons/check-circle';
@@ -59,15 +60,7 @@
         </div>
       {/if}
 
-      <audio
-        controls
-        src={audioUrl}
-        class="w-full"
-        preload="auto"
-        aria-label="Generated audio"
-        onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.stopPropagation()}
-      ></audio>
+      <AudioPlayer src={audioUrl} preload="auto" ariaLabel="Generated audio" />
 
       {#if lastRequest}
         <Separator />

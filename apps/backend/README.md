@@ -13,6 +13,35 @@ bun run backend:dev
 
 `bun run backend:setup` creates `apps/backend/.venv` if needed and installs `requirements.txt`. It requires `python` on `PATH`.
 
+Activate the backend virtual environment before installing PyTorch:
+
+```powershell
+# Windows
+.\apps\backend\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS/Linux
+source ./apps/backend/.venv/bin/activate
+```
+
+`requirements.txt` does not install `torch` or `torchaudio`, so install PyTorch manually into the activated backend virtual environment before `bun run backend:dev`.
+
+Examples:
+
+```bash
+# CPU-only or Apple Silicon
+pip install torch torchaudio
+
+# NVIDIA GPU: use the wheel that matches your CUDA version
+pip install torch==2.11.0+cu128 torchaudio==2.11.0+cu128 --extra-index-url https://download.pytorch.org/whl/cu128
+
+# Intel Arc / XPU
+pip install torch==2.11.0+cu128 torchaudio==2.11.0+cu128 --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+```
+
+See the [PyTorch install guide](https://pytorch.org/get-started/locally/) for the correct wheel for your hardware. The backend chooses the device in `tts_backend/config.py`: CUDA first, then MPS, then CPU.
+
 The dev server listens on `http://127.0.0.1:5000`.
 
 ## Direct Verification
@@ -50,4 +79,4 @@ There is no standalone migration system. Schema creation and the current inline 
 ## Caveats
 
 - `.env` files are not auto-loaded.
-- `tts_backend/constants.py` hardcodes `MODEL_DEVICE_MAP = "cuda:0"`, so CPU-only development will fail unless that is changed.
+- Device selection happens in `tts_backend/config.py`, not `constants.py`.

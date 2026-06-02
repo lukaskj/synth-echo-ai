@@ -23,6 +23,7 @@
     // Status
     status,
     modelReady,
+    modelDevice,
     isBusy,
 
     // Audio output
@@ -105,6 +106,7 @@
     cloneInputText?: string;
     status: RequestStatus;
     modelReady: boolean;
+    modelDevice: string | null;
     isBusy: boolean;
     audioUrl: string;
     errorMessage: string;
@@ -171,7 +173,7 @@
 </script>
 
 <div class="bg-background text-foreground min-h-screen">
-  <DashboardHeader {status} {modelReady} {isBusy} {onLoadModel} {onUnloadModel} />
+  <DashboardHeader {status} {modelReady} {modelDevice} {isBusy} {onLoadModel} {onUnloadModel} />
 
   <main class="mx-auto max-w-7xl px-4 py-6">
     <form class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]" onsubmit={onSubmit}>

@@ -86,6 +86,7 @@
   let responseMessage = $state('');
   let lastRequest = $state<LastRequest | null>(null);
   let modelReady = $state(false);
+  let modelDevice = $state<string | null>(null);
 
   // ─── Clone settings management ────────────────────────────────────────────
   let cloneSettingsMessage = $state('');
@@ -118,8 +119,9 @@
   );
   let canSynthesize = $derived(inputText.trim().length > 0 && !isBusy);
   let canClone = $derived(
-    cloneInputText.trim().length > 0 && mode === 'clone' && cloneView === 'selected' && !isBusy
+    cloneInputText.trim().length > 0 && mode === 'clone' && selectedCloneSetting !== null && !isBusy
   );
+
   let canSaveCloneSetting = $derived(
     cloneSettingName.trim().length > 0 &&
       cloneRefText.trim().length > 0 &&
@@ -147,8 +149,6 @@
   let instruct = $derived(
     buildInstruct([selectedGender, selectedPitch, selectedAccent, selectedAge, selectedStyle])
   );
-  let syncTextOnModeChange = false;
-
   // ─── Helpers ──────────────────────────────────────────────────────────────
   function resetAudioPreview() {
     revokeObjectUrl(audioUrl);
@@ -420,18 +420,6 @@
   });
 
   $effect(() => {
-    if (!syncTextOnModeChange) {
-      syncTextOnModeChange = true;
-      return;
-    }
-    if (mode === 'clone') {
-      cloneInputText = inputText;
-    } else {
-      inputText = cloneInputText;
-    }
-  });
-
-  $effect(() => {
     if (!isRecordingCloneRefAudio || recordingStartedAt === null || typeof window === 'undefined') {
       return;
     }
@@ -457,6 +445,7 @@
     responseMessage = '';
     const payload = await loadModel();
     modelReady = true;
+    modelDevice = payload.device ?? null;
     responseMessage = payload.message || UI_TEXT.modelLoadedSuccess;
     status = 'idle';
   }
@@ -477,12 +466,14 @@
     try {
       const payload = await unloadModel();
       modelReady = false;
+      modelDevice = payload.device ?? null;
       responseMessage = payload.message || UI_TEXT.modelUnloadedSuccess;
       resetAudioPreview();
       lastRequest = null;
       status = 'idle';
     } catch (error) {
       status = 'error';
+      modelDevice = null;
       errorMessage = error instanceof Error ? error.message : UI_TEXT.unloadModelFailed;
     }
   }
@@ -845,6 +836,7 @@
   bind:cloneInputText
   {status}
   {modelReady}
+  {modelDevice}
   {isBusy}
   {audioUrl}
   {errorMessage}

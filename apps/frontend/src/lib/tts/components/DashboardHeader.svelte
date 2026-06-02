@@ -9,12 +9,14 @@
   let {
     status,
     modelReady,
+    modelDevice,
     isBusy,
     onLoadModel,
     onUnloadModel
   }: {
     status: RequestStatus;
     modelReady: boolean;
+    modelDevice: string | null;
     isBusy: boolean;
     onLoadModel: () => void;
     onUnloadModel: () => void;
@@ -53,6 +55,12 @@
           <span class="size-1.5 rounded-full {modelReady ? 'bg-emerald-400' : 'bg-amber-400'}"
           ></span>
           Model: {modelReady ? UI_TEXT.modelLoaded : UI_TEXT.modelNotLoaded}
+        </Badge>
+        <Badge variant="outline" class="gap-1.5 text-xs">
+          <span class="text-muted-foreground">{UI_TEXT.deviceLabel}:</span>
+          <span class="text-foreground font-medium"
+            >{modelDevice ?? UI_TEXT.modelDeviceUnknown}</span
+          >
         </Badge>
         <Button variant="outline" size="sm" onclick={onLoadModel} disabled={isBusy || modelReady}>
           {isBusy && status === 'loading-model' ? UI_TEXT.loadingShort : UI_TEXT.loadModel}

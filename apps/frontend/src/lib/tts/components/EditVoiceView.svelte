@@ -7,6 +7,7 @@
   import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
   import type { SavedCloneSetting } from '$lib/tts/types';
   import { LANGUAGES, UI_TEXT } from '$lib/tts/constants';
+  import AudioPlayer from '$lib/tts/components/AudioPlayer.svelte';
 
   let {
     selectedCloneSetting,
@@ -99,8 +100,7 @@
     {#if selectedCloneSetting?.ref_audio_path}
       <div class="space-y-1.5">
         <Label>Reference Audio (read-only)</Label>
-        <audio controls src={selectedCloneSetting.ref_audio_path} class="w-full" preload="none"
-        ></audio>
+        <AudioPlayer src={selectedCloneSetting.ref_audio_path} preload="none" />
       </div>
     {/if}
 

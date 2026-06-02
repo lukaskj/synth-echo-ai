@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$lib/components/ui/button/index.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
+  import AudioPlayer from '$lib/tts/components/AudioPlayer.svelte';
   import MicIcon from 'lucide-svelte/icons/mic';
   import PencilIcon from 'lucide-svelte/icons/pencil';
   import Trash2Icon from 'lucide-svelte/icons/trash-2';
@@ -107,12 +108,14 @@
           <VolumeIcon class="size-3.5" />
         {/if}
       </Button>
-      <audio
-        bind:this={audioRef}
+      <AudioPlayer
+        bind:audioElement={audioRef}
         src={voice.ref_audio_path}
         preload="none"
-        onended={handleAudioEnded}
-      ></audio>
+        controls={false}
+        className="hidden"
+        onEnded={handleAudioEnded}
+      />
     {/if}
 
     <!-- Edit button -->

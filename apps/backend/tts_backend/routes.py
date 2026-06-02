@@ -50,7 +50,7 @@ def create_api_blueprint(
             return _json_error("Failed to load model.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
 
         message = "Model loaded successfully."
-        return jsonify({"message": message, "state": model_service.get_state().value}), HTTPStatus.OK
+        return jsonify(_build_model_response(message, model_service)), HTTPStatus.OK
 
     @api.post("/unload")
     def unload_model():
@@ -60,7 +60,7 @@ def create_api_blueprint(
             return _json_error("Model is still loading.", model_service, HTTPStatus.CONFLICT)
 
         message = "Model unloaded successfully." if result is UnloadResult.UNLOADED else "Model was not loaded."
-        return jsonify({"message": message, "state": model_service.get_state().value}), HTTPStatus.OK
+        return jsonify(_build_model_response(message, model_service)), HTTPStatus.OK
 
     @api.post("/synthesize")
     def synthesize_speech():
@@ -401,7 +401,16 @@ def _build_clone_request_from_saved_setting(
 
 
 def _json_error(message: str, model_service: ModelService, status: HTTPStatus, error: str | None = None):
-    response = {"message": message, "state": model_service.get_state().value}
+    response = _build_model_response(message, model_service)
     if error is not None:
         response["error"] = error
     return jsonify(response), status
+
+
+def _build_model_response(message: str, model_service: ModelService) -> dict[str, str | None]:
+    device = model_service.get_device()
+    return {
+        "message": message,
+        "state": model_service.get_state().value,
+        "device": device.value if device is not None else None,
+    }

@@ -9,6 +9,7 @@
   import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
   import MicIcon from 'lucide-svelte/icons/mic';
   import StopCircleIcon from 'lucide-svelte/icons/stop-circle';
+  import AudioPlayer from '$lib/tts/components/AudioPlayer.svelte';
   import WaveformVisualizer from './WaveformVisualizer.svelte';
   import { LANGUAGES, UI_TEXT, DEFAULT_FORM_STATE } from '$lib/tts/constants';
 
@@ -153,7 +154,7 @@
     {#if cloneRefAudioPreviewUrl && cloneRefAudioIsMicrophoneRecording}
       <div class="space-y-1.5">
         <Label>Recording Preview</Label>
-        <audio controls src={cloneRefAudioPreviewUrl} class="w-full" preload="auto"></audio>
+        <AudioPlayer src={cloneRefAudioPreviewUrl} preload="auto" />
       </div>
     {/if}
 
