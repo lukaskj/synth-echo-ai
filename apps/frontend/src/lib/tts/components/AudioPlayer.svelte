@@ -13,7 +13,7 @@
     src,
     preload = 'auto',
     controls = true,
-    className = 'm-0 w-full py-3',
+    className = 'm-0 w-full h-7',
     ariaLabel,
     audioElement = $bindable(null),
     onEnded

@@ -2,7 +2,7 @@
 
 A full-stack wrapper around [OmniVoice](https://github.com/k2-fsa/OmniVoice) ([Hugging Face](https://huggingface.co/k2-fsa/OmniVoice)) for creating audio from feature-driven text instructions or from a cloned voice based on reference audio. OmniVoice handles all synthesis and zero-shot voice cloning and supports English, Chinese, Japanese, Portuguese, Spanish, French, German, Italian, and Russian.
 
-It is designed as a full local stack: a SvelteKit frontend gives you a simple workspace to interact with the app, while the Flask backend wraps the OmniVoice model to handle model loading, speech synthesis, and voice clone settings.
+It is designed as a full local stack: a SvelteKit frontend gives you a simple workspace to interact with the app, while the Flask backend wraps the OmniVoice model to handle model loading, speech synthesis, voice clone settings, and saved multi-line conversations.
 
 ## Requirements
 - [Python 3.10+](https://www.python.org/downloads/)
@@ -99,8 +99,11 @@ python -m compileall app.py tts_backend
 ## Runtime Notes
 
 - Frontend browser code calls Flask directly via `PUBLIC_BACKEND_BASE_URL`. If unset, it defaults to `http://127.0.0.1:5000`.
+- Frontend conversation pages use `/conversation/[id]` for saved conversations. The static frontend is configured with a `200.html` fallback so those URLs work on direct loads as well as client-side navigation.
 - Backend routes are mounted under `/api/v1`.
-- Voice clone settings persist in `apps/backend/data/clone_settings.sqlite3` and uploaded reference audio persists in `apps/backend/storage/clone_settings/`.
+- Voice clone settings and conversations persist in `apps/backend/data/clone_settings.sqlite3`.
+- Uploaded reference audio persists in `apps/backend/storage/clone_settings/`.
+- Generated synthesis and clone audio is stored in `apps/backend/storage/generated_audio/` and the API returns saved audio URLs instead of raw audio responses.
 
 ## More Detail
 

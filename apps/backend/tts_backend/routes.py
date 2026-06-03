@@ -5,13 +5,18 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request, send_file
 
-from .audio import audio_to_mp3_buffer
-from .schemas import CloneRequest, CloneSetting, CloneSettingUpdateRequest
+from .schemas import CloneRequest, CloneSetting, CloneSettingUpdateRequest, Conversation, ConversationLine
 from .services.clone_settings_service import (
     CloneSettingNotFoundError,
     CloneSettingsService,
     CloneSettingsServiceError,
 )
+from .services.conversation_service import (
+    ConversationNotFoundError,
+    ConversationService,
+    ConversationServiceError,
+)
+from .services.generated_audio_service import GeneratedAudioService
 from .services.model_service import (
     LoadResult,
     ModelLoadInProgressError,
@@ -25,6 +30,7 @@ from .validation import (
     parse_clone_request,
     parse_clone_setting_create_request,
     parse_clone_setting_update_request,
+    parse_conversation_request,
     parse_synthesis_request,
 )
 
@@ -32,13 +38,27 @@ from .validation import (
 def create_api_blueprint(
     model_service: ModelService,
     clone_settings_service: CloneSettingsService,
+    conversation_service: ConversationService,
     audio_storage: AudioStorage,
+    generated_audio_service: GeneratedAudioService,
 ) -> Blueprint:
     api = Blueprint("api", __name__)
 
     @api.get("/hello")
     def hello_world() -> str:
         return "Hello, World!"
+
+    @api.get("/generated-audio/<string:filename>")
+    def get_generated_audio(filename: str):
+        try:
+            audio_path = generated_audio_service.resolve_filename(filename)
+        except FileNotFoundError:
+            return _json_error("Generated audio file not found.", model_service, HTTPStatus.NOT_FOUND)
+
+        if not audio_path.is_file():
+            return _json_error("Generated audio file not found.", model_service, HTTPStatus.NOT_FOUND)
+
+        return send_file(audio_path, mimetype="audio/mpeg", as_attachment=False, download_name=audio_path.name)
 
     @api.post("/load")
     def load_model():
@@ -78,7 +98,7 @@ def create_api_blueprint(
 
         try:
             audio, sample_rate = model_service.synthesize(synthesis_request)
-            mp3_buffer = audio_to_mp3_buffer(audio, sample_rate)
+            generated_audio = generated_audio_service.save(audio, sample_rate, prefix="synthesis")
         except ModelLoadInProgressError as exc:
             return _json_error(str(exc), model_service, HTTPStatus.CONFLICT)
         except ModelNotLoadedError:
@@ -86,12 +106,7 @@ def create_api_blueprint(
         except Exception as exc:
             return _json_error("Synthesis failed.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
 
-        return send_file(
-            mp3_buffer,
-            mimetype="audio/mpeg",
-            as_attachment=False,
-            download_name="synthesis.mp3",
-        )
+        return jsonify({"message": "Synthesis complete.", "audio_url": generated_audio.url}), HTTPStatus.OK
 
     @api.post("/clone")
     def clone_voice():
@@ -115,7 +130,7 @@ def create_api_blueprint(
                 clone_request = parse_clone_request(request.form, temp_path)
 
             audio, sample_rate = model_service.clone(clone_request)
-            mp3_buffer = audio_to_mp3_buffer(audio, sample_rate)
+            generated_audio = generated_audio_service.save(audio, sample_rate, prefix="clone")
         except CloneSettingNotFoundError as exc:
             return _json_error("Clone setting not found.", model_service, HTTPStatus.NOT_FOUND, str(exc))
         except RequestValidationError as exc:
@@ -142,12 +157,80 @@ def create_api_blueprint(
             if temp_path is not None:
                 audio_storage.delete_file(temp_path)
 
-        return send_file(
-            mp3_buffer,
-            mimetype="audio/mpeg",
-            as_attachment=False,
-            download_name="clone.mp3",
+        return jsonify({"message": "Voice cloning complete.", "audio_url": generated_audio.url}), HTTPStatus.OK
+
+    @api.get("/conversations")
+    def list_conversations():
+        try:
+            conversations = conversation_service.list()
+        except ConversationServiceError as exc:
+            return _json_error("Failed to load conversations.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+
+        return jsonify({"conversations": [_serialize_conversation(conversation) for conversation in conversations]}), HTTPStatus.OK
+
+    @api.get("/conversations/<int:conversation_id>")
+    def get_conversation(conversation_id: int):
+        try:
+            conversation = conversation_service.get(conversation_id)
+        except ConversationNotFoundError as exc:
+            return _json_error("Conversation not found.", model_service, HTTPStatus.NOT_FOUND, str(exc))
+        except ConversationServiceError as exc:
+            return _json_error("Failed to load conversation.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+
+        return jsonify({"conversation": _serialize_conversation(conversation)}), HTTPStatus.OK
+
+    @api.post("/conversations")
+    def create_conversation():
+        payload = _get_json_payload()
+
+        try:
+            conversation_request = parse_conversation_request(payload)
+            conversation = conversation_service.create(conversation_request)
+        except RequestValidationError as exc:
+            return _json_error("Invalid conversation request.", model_service, HTTPStatus.BAD_REQUEST, str(exc))
+        except ConversationServiceError as exc:
+            return _json_error("Failed to create conversation.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+
+        return (
+            jsonify({"message": "Conversation created successfully.", "conversation": _serialize_conversation(conversation)}),
+            HTTPStatus.CREATED,
         )
+
+    @api.post("/conversations/update/<int:conversation_id>")
+    def update_conversation(conversation_id: int):
+        payload = _get_json_payload()
+
+        try:
+            previous_conversation = conversation_service.get(conversation_id)
+            conversation_request = parse_conversation_request(payload)
+            conversation = conversation_service.update(conversation_id, conversation_request)
+        except ConversationNotFoundError as exc:
+            return _json_error("Conversation not found.", model_service, HTTPStatus.NOT_FOUND, str(exc))
+        except RequestValidationError as exc:
+            return _json_error("Invalid conversation request.", model_service, HTTPStatus.BAD_REQUEST, str(exc))
+        except ConversationServiceError as exc:
+            return _json_error("Failed to update conversation.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+
+        previous_audio_urls = {line.audio_url for line in previous_conversation.lines if line.audio_url}
+        next_audio_urls = {line.audio_url for line in conversation.lines if line.audio_url}
+        for removed_audio_url in previous_audio_urls - next_audio_urls:
+            generated_audio_service.delete_by_url(removed_audio_url)
+
+        return jsonify({"message": "Conversation updated successfully.", "conversation": _serialize_conversation(conversation)}), HTTPStatus.OK
+
+    @api.delete("/conversations/delete/<int:conversation_id>")
+    def delete_conversation(conversation_id: int):
+        try:
+            deleted_conversation = conversation_service.delete(conversation_id)
+        except ConversationNotFoundError as exc:
+            return _json_error("Conversation not found.", model_service, HTTPStatus.NOT_FOUND, str(exc))
+        except ConversationServiceError as exc:
+            return _json_error("Failed to delete conversation.", model_service, HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+
+        for line in deleted_conversation.lines:
+            generated_audio_service.delete_by_url(line.audio_url)
+
+        return jsonify({"message": "Conversation deleted successfully.", "id": deleted_conversation.id}), HTTPStatus.OK
 
     @api.post("/settings/save-clone")
     def save_clone_setting():
@@ -365,6 +448,40 @@ def _serialize_clone_setting(setting: CloneSetting) -> dict[str, Any]:
         "num_step": setting.num_step,
         "is_microphone_recording": setting.is_microphone_recording,
         "created_at": setting.created_at,
+    }
+
+
+def _serialize_conversation(conversation: Conversation) -> dict[str, Any]:
+    return {
+        "id": conversation.id,
+        "name": conversation.name,
+        "lines": [_serialize_conversation_line(line) for line in conversation.lines],
+        "created_at": conversation.created_at,
+        "updated_at": conversation.updated_at,
+    }
+
+
+def _serialize_conversation_line(line: ConversationLine) -> dict[str, Any]:
+    return {
+        "id": line.id,
+        "conversation_id": line.conversation_id,
+        "position": line.position,
+        "text": line.text,
+        "voice_type": line.voice_type,
+        "clone_setting_id": line.clone_setting_id,
+        "voice_label": line.voice_label,
+        "audio_url": line.audio_url,
+        "lang": line.lang,
+        "speed": line.speed,
+        "num_step": line.num_step,
+        "instruct": line.instruct,
+        "selected_gender": line.selected_gender,
+        "selected_accent": line.selected_accent,
+        "selected_pitch": line.selected_pitch,
+        "selected_age": line.selected_age,
+        "selected_style": line.selected_style,
+        "created_at": line.created_at,
+        "updated_at": line.updated_at,
     }
 
 

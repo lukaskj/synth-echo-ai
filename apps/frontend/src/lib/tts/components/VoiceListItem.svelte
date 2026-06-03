@@ -16,13 +16,15 @@
     isSelected = false,
     onSelect,
     onEdit,
-    onDelete
+    onDelete,
+    showManagementActions = true
   }: {
     voice: SavedCloneSetting;
     isSelected?: boolean;
     onSelect: (id: number) => void;
-    onEdit: (id: number) => void;
-    onDelete: (id: number) => void;
+    onEdit?: (id: number) => void;
+    onDelete?: (id: number) => void;
+    showManagementActions?: boolean;
   } = $props();
 
   let audioPlaying = $state(false);
@@ -118,33 +120,33 @@
       />
     {/if}
 
-    <!-- Edit button -->
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onclick={(e: MouseEvent) => {
-        e.stopPropagation();
-        onEdit(voice.id);
-      }}
-      aria-label="Edit voice"
-      title="Edit voice"
-    >
-      <PencilIcon class="size-3.5" />
-    </Button>
+    {#if showManagementActions}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onclick={(e: MouseEvent) => {
+          e.stopPropagation();
+          onEdit?.(voice.id);
+        }}
+        aria-label="Edit voice"
+        title="Edit voice"
+      >
+        <PencilIcon class="size-3.5" />
+      </Button>
 
-    <!-- Delete button -->
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      class="text-destructive hover:text-destructive hover:bg-destructive/10"
-      onclick={(e: MouseEvent) => {
-        e.stopPropagation();
-        onDelete(voice.id);
-      }}
-      aria-label="Delete voice"
-      title="Delete voice"
-    >
-      <Trash2Icon class="size-3.5" />
-    </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="text-destructive hover:text-destructive hover:bg-destructive/10"
+        onclick={(e: MouseEvent) => {
+          e.stopPropagation();
+          onDelete?.(voice.id);
+        }}
+        aria-label="Delete voice"
+        title="Delete voice"
+      >
+        <Trash2Icon class="size-3.5" />
+      </Button>
+    {/if}
   </div>
 </div>
