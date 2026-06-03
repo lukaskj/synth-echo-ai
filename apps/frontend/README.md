@@ -31,8 +31,9 @@ bun run --cwd apps/frontend preview
 
 - `src/routes/+page.svelte` is only a thin wrapper.
 - The voice dashboard UI lives in `src/lib/tts/components/TtsWorkspace.svelte` and is served from `/`.
-- The conversation routes are thin wrappers around `src/lib/tts/components/ConversationWorkspace.svelte` and are served from `/conversation` and `/conversation/[id]`.
-- `ConversationWorkspace.svelte` owns conversation state/orchestration, while `ConversationSidebar.svelte`, `ConversationEditor.svelte`, and `ConversationLineConfig.svelte` render the main page sections.
+- The conversation list route is a thin wrapper around `src/lib/tts/components/ConversationListPage.svelte` at `/conversation`.
+- The conversation detail route is a thin wrapper around `src/lib/tts/components/ConversationDetailPage.svelte` at `/conversation/[conversationId]`.
+- `ConversationListPage.svelte` owns conversation listing and creation, while `ConversationDetailPage.svelte` owns conversation editing state/orchestration and composes `ConversationEditor.svelte` and `ConversationLineConfig.svelte`.
 - `VoiceLibraryBrowser.svelte` is the shared searchable voice-library list used by both the dashboard voice sheet and the conversation line configuration.
 - Frontend API calls are centralized in `src/lib/tts/api.ts`.
 - API paths and shared UI constants live in `src/lib/tts/constants.ts`.
@@ -41,7 +42,7 @@ bun run --cwd apps/frontend preview
 ## Runtime Notes
 
 - The app is intentionally static: `@sveltejs/adapter-static` is enabled and `src/routes/+layout.ts` sets `prerender = true`.
-- `svelte.config.js` uses `adapter-static({ fallback: '200.html' })` so route-parameter pages like `/conversation/[id]` still work on direct loads and refreshes in SPA-style static hosting.
+- `svelte.config.js` uses `adapter-static({ fallback: '200.html' })` so route-parameter pages like `/conversation/[conversationId]` still work on direct loads and refreshes in SPA-style static hosting.
 - `src/routes/api/mock-tts/+server.ts` is prerendered and returns canned audio for UI work when the Flask backend is unavailable.
 - Svelte 5 runes mode is forced for app code in `svelte.config.js`.
 - Browser requests go directly to Flask via `PUBLIC_BACKEND_BASE_URL`; the default is `http://127.0.0.1:5000`.

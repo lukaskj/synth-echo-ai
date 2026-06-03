@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import {
     cloneAudio,
     deleteCloneSetting,
@@ -17,17 +16,12 @@
     formatElapsedTime,
     getPreferredRecordingMimeType,
     getRecordedFileExtension,
-    getSpeechRecognitionLocale,
-    getSpeechRecognitionConstructor
+    getSpeechRecognitionConstructor,
+    getSpeechRecognitionLocale
   } from '$lib/tts/audio';
   import TtsDashboard from '$lib/tts/components/TtsDashboard.svelte';
-  import {
-    DEFAULT_FORM_STATE,
-    LANGUAGES,
-    PAGE_DESCRIPTION,
-    PAGE_TITLE,
-    UI_TEXT
-  } from '$lib/tts/constants';
+  import { DEFAULT_FORM_STATE, LANGUAGES, UI_TEXT } from '$lib/tts/constants';
+  import { dashboardHeaderState } from '$lib/tts/dashboard-header-state.svelte';
   import { buildInstruct, revokeObjectUrl } from '$lib/tts/helpers';
   import type {
     CloneView,
@@ -39,6 +33,7 @@
     SpeechRecognitionInstance,
     TtsMode
   } from '$lib/tts/types';
+  import { onDestroy } from 'svelte';
 
   let mode = $state<TtsMode>('synthesize');
   let cloneView = $state<CloneView>('list');
@@ -380,11 +375,23 @@
   }
 
   onDestroy(() => {
+    dashboardHeaderState.reset();
     resetAudioPreview();
     resetCloneRefAudioPreview();
     discardCloneRefRecording();
     stopSpeechRecognition();
     stopMediaStream();
+  });
+
+  $effect(() => {
+    dashboardHeaderState.setState({
+      status,
+      modelReady,
+      modelDevice,
+      isBusy,
+      onLoadModel: handleLoadModel,
+      onUnloadModel: handleUnloadModel
+    });
   });
 
   $effect(() => {
@@ -804,26 +811,16 @@
   }
 </script>
 
-<svelte:head>
-  <title>{PAGE_TITLE}</title>
-  <meta name="description" content={PAGE_DESCRIPTION} />
-</svelte:head>
-
 <TtsDashboard
   bind:mode
   bind:synthesizeInputText={inputText}
   bind:cloneInputText
   {status}
-  {modelReady}
-  {modelDevice}
-  {isBusy}
   {audioUrl}
   {errorMessage}
   {responseMessage}
   {lastRequest}
   {canSubmit}
-  onLoadModel={handleLoadModel}
-  onUnloadModel={handleUnloadModel}
   onSubmit={handleSynthesize}
   bind:synthesizeLang={lang}
   bind:synthesizeSpeed={speed}

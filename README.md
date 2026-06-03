@@ -99,7 +99,7 @@ python -m compileall app.py tts_backend
 ## Runtime Notes
 
 - Frontend browser code calls Flask directly via `PUBLIC_BACKEND_BASE_URL`. If unset, it defaults to `http://127.0.0.1:5000`.
-- Frontend conversation pages use `/conversation/[id]` for saved conversations. The static frontend is configured with a `200.html` fallback so those URLs work on direct loads as well as client-side navigation.
+- Frontend conversation pages use `/conversation` for the list and `/conversation/[conversationId]` for saved conversation details. The static frontend is configured with a `200.html` fallback so those URLs work on direct loads as well as client-side navigation.
 - Backend routes are mounted under `/api/v1`.
 - Voice clone settings and conversations persist in `apps/backend/data/clone_settings.sqlite3`.
 - Uploaded reference audio persists in `apps/backend/storage/clone_settings/`.

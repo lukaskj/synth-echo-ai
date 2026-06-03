@@ -156,6 +156,11 @@ export async function listConversations() {
   return payload.conversations.map(normalizeConversation);
 }
 
+export async function getConversation(conversationId: number) {
+  const payload = await getJson<ConversationResponse>(endpoints.getConversation(conversationId));
+  return normalizeConversation(payload.conversation);
+}
+
 export async function createConversation(payload: ConversationMutation) {
   const response = await postJson(endpoints.conversations, serializeConversationPayload(payload));
   const body = (await response.json()) as ConversationResponse;

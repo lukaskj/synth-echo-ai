@@ -11,12 +11,14 @@
     conversations,
     selectedConversationId,
     isLoadingConversations,
+    isCreatingConversation = false,
     onNewConversation,
     onOpenConversation
   }: {
     conversations: Conversation[];
     selectedConversationId: number | null;
     isLoadingConversations: boolean;
+    isCreatingConversation?: boolean;
     onNewConversation: () => void | Promise<void>;
     onOpenConversation: (conversationId: number) => void | Promise<void>;
   } = $props();
@@ -26,8 +28,17 @@
   <Card.Header class="">
     <div class="flex items-center justify-between gap-3">
       <Card.Title class="text-sm font-semibold">{UI_TEXT.conversationSectionTitle}</Card.Title>
-      <Button size="sm" class="gap-1.5" onclick={onNewConversation}>
-        <PlusIcon class="size-3.5" />
+      <Button
+        size="sm"
+        class="gap-1.5"
+        onclick={onNewConversation}
+        disabled={isCreatingConversation}
+      >
+        {#if isCreatingConversation}
+          <LoaderIcon class="size-3.5 animate-spin" />
+        {:else}
+          <PlusIcon class="size-3.5" />
+        {/if}
         {UI_TEXT.conversationNewButton}
       </Button>
     </div>
@@ -42,7 +53,7 @@
       <p class="text-muted-foreground text-sm">{UI_TEXT.conversationSectionEmpty}</p>
     {:else}
       <div class="space-y-2">
-        {#each conversations as conversation (conversation.id)}          
+        {#each conversations as conversation (conversation.id)}
           <Button
             variant="outline"
             class={`h-auto w-full justify-start rounded-xl px-3 py-3 text-left transition-colors cursor-pointer ${selectedConversationId === conversation.id ? 'bg-primary/5 hover:bg-primary/10' : 'bg-muted/20 hover:bg-muted/35'}`}
@@ -50,7 +61,12 @@
           >
             <div class="flex flex-row justify-between w-full">
               <p class="truncate text-sm font-medium">{conversation.name}</p>
-              <Badge variant="outline" title={conversation.lines.length === 1 ? '1 line' : `${conversation.lines.length} lines`}>
+              <Badge
+                variant="outline"
+                title={conversation.lines.length === 1
+                  ? '1 line'
+                  : `${conversation.lines.length} lines`}
+              >
                 {conversation.lines.length === 1 ? '1 line' : `${conversation.lines.length} lines`}
               </Badge>
             </div>

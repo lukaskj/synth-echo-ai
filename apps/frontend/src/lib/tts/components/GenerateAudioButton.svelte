@@ -1,9 +1,5 @@
 <script lang="ts">
-  import {
-    Button,
-    type ButtonSize,
-    type ButtonVariant
-  } from '$lib/components/ui/button/index.js';
+  import { Button, type ButtonSize, type ButtonVariant } from '$lib/components/ui/button/index.js';
   import RefreshCcwIcon from 'lucide-svelte/icons/refresh-ccw';
   import LoaderIcon from 'lucide-svelte/icons/loader';
   import { UI_TEXT } from '$lib/tts/constants';

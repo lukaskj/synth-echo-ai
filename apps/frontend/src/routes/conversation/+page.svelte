@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ConversationWorkspace from '$lib/tts/components/ConversationWorkspace.svelte';
+  import ConversationListPage from '$lib/tts/components/ConversationListPage.svelte';
 </script>
 
-<ConversationWorkspace />
+<ConversationListPage />

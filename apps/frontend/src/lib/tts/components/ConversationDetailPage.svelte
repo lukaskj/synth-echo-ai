@@ -1,21 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { page } from '$app/state';
-  import { onDestroy, tick } from 'svelte';
-  import { toast } from 'svelte-sonner';
-  import DashboardHeader from '$lib/tts/components/DashboardHeader.svelte';
-  import ConversationEditor from '$lib/tts/components/ConversationEditor.svelte';
-  import ConversationLineConfig from '$lib/tts/components/ConversationLineConfig.svelte';
-  import ConversationSidebar from '$lib/tts/components/ConversationSidebar.svelte';
-  import VoiceSelectionSheet from '$lib/tts/components/VoiceSelectionSheet.svelte';
+  import { Button } from '$lib/components/ui/button/index.js';
   import {
-    deleteCloneSetting,
     cloneAudio,
-    createConversation,
+    deleteCloneSetting,
     deleteConversation,
+    getConversation,
     getSavedCloneSetting,
-    listConversations,
     listSavedCloneSettings,
     loadModel,
     saveCloneSetting,
@@ -24,17 +16,21 @@
     updateCloneSetting,
     updateConversation
   } from '$lib/tts/api';
-  import { DEFAULT_FORM_STATE, PAGE_TITLE, UI_TEXT } from '$lib/tts/constants';
-  import { buildInstruct, revokeObjectUrl } from '$lib/tts/helpers';
   import {
     buildTranscriptFromEvent,
     convertRecordedBlobToWav,
     formatElapsedTime,
     getPreferredRecordingMimeType,
     getRecordedFileExtension,
-    getSpeechRecognitionLocale,
-    getSpeechRecognitionConstructor
+    getSpeechRecognitionConstructor,
+    getSpeechRecognitionLocale
   } from '$lib/tts/audio';
+  import ConversationEditor from '$lib/tts/components/ConversationEditor.svelte';
+  import ConversationLineConfig from '$lib/tts/components/ConversationLineConfig.svelte';
+  import VoiceSelectionSheet from '$lib/tts/components/VoiceSelectionSheet.svelte';
+  import { DEFAULT_FORM_STATE, UI_TEXT } from '$lib/tts/constants';
+  import { dashboardHeaderState } from '$lib/tts/dashboard-header-state.svelte';
+  import { buildInstruct, revokeObjectUrl } from '$lib/tts/helpers';
   import type {
     CloneView,
     Conversation,
@@ -46,6 +42,12 @@
     SpeechRecognitionEvent,
     SpeechRecognitionInstance
   } from '$lib/tts/types';
+  import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
+  import LoaderIcon from 'lucide-svelte/icons/loader';
+  import { onDestroy, tick } from 'svelte';
+  import { toast } from 'svelte-sonner';
+
+  let { conversationId }: { conversationId: string } = $props();
 
   type InstructionField =
     | 'selected_gender'
@@ -60,12 +62,13 @@
   let cloneSettingsMessage = $state('');
   let cloneSettingsErrorMessage = $state('');
 
-  let conversations = $state<Conversation[]>([]);
+  let loadedConversation = $state<Conversation | null>(null);
   let savedCloneSettings = $state<SavedCloneSetting[]>([]);
-  let isLoadingConversations = $state(false);
+  let isLoadingConversation = $state(false);
   let isLoadingVoices = $state(false);
-  let hasLoadedConversations = $state(false);
+  let hasAttemptedConversationLoad = $state(false);
   let hasLoadedVoices = $state(false);
+  let conversationLoadErrorMessage = $state('');
   let isVoiceSheetOpen = $state(false);
   let cloneView = $state<CloneView>('list');
   let isRecordMode = $state(false);
@@ -91,7 +94,6 @@
   let recordingElapsedMs = $state(0);
   let mediaStream = $state<MediaStream | null>(null);
   let isSavingConversation = $state(false);
-  let selectedConversationId = $state<number | null>(null);
   let draftName = $state('');
   let draftLines = $state<ConversationLineMutation[]>([]);
   let selectedLineIndex = $state<number | null>(null);
@@ -115,9 +117,13 @@
       status === 'synthesizing' ||
       status === 'cloning'
   );
-  let selectedConversation = $derived(
-    conversations.find((conversation) => conversation.id === selectedConversationId) ?? null
-  );
+  let routeConversationId = $derived.by(() => {
+    const parsedConversationId = Number(conversationId);
+    return Number.isFinite(parsedConversationId) && parsedConversationId > 0
+      ? parsedConversationId
+      : null;
+  });
+  let selectedConversationId = $derived(loadedConversation?.id ?? routeConversationId);
   let canSaveCloneSetting = $derived(
     cloneSettingName.trim().length > 0 &&
       cloneRefText.trim().length > 0 &&
@@ -141,16 +147,11 @@
   let canRecordCloneRefAudio = $derived(
     !isSavingCloneSetting && !isBusy && typeof navigator !== 'undefined'
   );
-  let hasDraftConversation = $derived(
-    selectedConversationId !== null || draftName.trim() !== '' || draftLines.length > 0
-  );
   let selectedLine = $derived(
     selectedLineIndex === null ? null : (draftLines[selectedLineIndex] ?? null)
   );
   let conversationTitle = $derived(
-    selectedConversationId === null
-      ? draftName.trim() || 'New conversation'
-      : (selectedConversation?.name ?? 'Conversation')
+    draftName.trim() || loadedConversation?.name || UI_TEXT.conversationTitleFallback
   );
 
   function resetCloneRefAudioPreview() {
@@ -486,13 +487,11 @@
   ) {
     if (!conversation) {
       draftName = '';
-      draftLines = [createNewLine(0)];
-      selectedLineIndex = 0;
-      selectedConversationId = null;
+      draftLines = [];
+      selectedLineIndex = null;
       return;
     }
 
-    selectedConversationId = conversation.id;
     draftName = conversation.name;
     draftLines = conversation.lines.map((line, index) => ({
       position: index,
@@ -937,34 +936,30 @@
     }
   }
 
-  async function refreshConversations() {
-    isLoadingConversations = true;
-    try {
-      conversations = await listConversations();
-      hasLoadedConversations = true;
-      const routeConversationId = Number(page.params.id);
-      const nextSelectedConversationId =
-        Number.isFinite(routeConversationId) && routeConversationId > 0
-          ? routeConversationId
-          : selectedConversationId;
+  async function refreshConversation(nextSelectedLineIndex: number | null = selectedLineIndex) {
+    if (routeConversationId === null) {
+      conversationLoadErrorMessage = UI_TEXT.conversationDetailUnavailable;
+      loadConversationIntoDraft(null);
+      loadedConversation = null;
+      return;
+    }
 
-      if (nextSelectedConversationId !== null) {
-        const refreshed =
-          conversations.find((conversation) => conversation.id === nextSelectedConversationId) ??
-          null;
-        if (refreshed) {
-          loadConversationIntoDraft(refreshed);
-        } else if (page.params.id) {
-          loadConversationIntoDraft(null);
-        }
-      } else if (!hasDraftConversation) {
-        loadConversationIntoDraft(null);
-      }
+    isLoadingConversation = true;
+    conversationLoadErrorMessage = '';
+
+    try {
+      const conversation = await getConversation(routeConversationId);
+      loadedConversation = conversation;
+      loadConversationIntoDraft(conversation, nextSelectedLineIndex);
     } catch (error) {
+      loadedConversation = null;
+      loadConversationIntoDraft(null);
+
       const errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationLoadFailed;
+      conversationLoadErrorMessage = errorMessage;
       toast.error(errorMessage);
     } finally {
-      isLoadingConversations = false;
+      isLoadingConversation = false;
     }
   }
 
@@ -980,10 +975,6 @@
         }
       }
       hasLoadedVoices = true;
-      if (draftLines.length === 0) {
-        draftLines = [createNewLine(0)];
-        selectedLineIndex = 0;
-      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : UI_TEXT.savedCloneSettingsFailed;
@@ -994,20 +985,18 @@
   }
 
   async function persistDraftConversation() {
-    if (selectedConversationId === null) {
+    if (routeConversationId === null) {
       return null;
     }
 
     const preservedLineIndex = selectedLineIndex;
 
-    const response = await updateConversation(selectedConversationId, {
+    const response = await updateConversation(routeConversationId, {
       name: draftName.trim(),
       lines: reindexDraftLines(draftLines)
     });
     const savedConversation = response.conversation;
-    conversations = conversations.map((conversation) =>
-      conversation.id === savedConversation.id ? savedConversation : conversation
-    );
+    loadedConversation = savedConversation;
     loadConversationIntoDraft(savedConversation, preservedLineIndex);
     return response;
   }
@@ -1044,9 +1033,7 @@
         line.voice_label =
           savedCloneSettings.find((setting) => setting.id === line.clone_setting_id)?.name ??
           line.voice_label;
-        if (selectedConversationId !== null) {
-          await persistDraftConversation();
-        }
+        await persistDraftConversation();
         toast.success(payload.message || UI_TEXT.cloneComplete);
       } else {
         updateInstructionLine(line);
@@ -1059,9 +1046,7 @@
           instruct: line.instruct
         });
         line.audio_url = payload.audio_url;
-        if (selectedConversationId !== null) {
-          await persistDraftConversation();
-        }
+        await persistDraftConversation();
         toast.success(payload.message || UI_TEXT.synthesisComplete);
       }
       draftLines = [...draftLines];
@@ -1077,6 +1062,11 @@
   }
 
   async function saveCurrentConversation() {
+    if (routeConversationId === null) {
+      toast.error(UI_TEXT.conversationDetailUnavailable);
+      return;
+    }
+
     const trimmedName = draftName.trim();
     if (!trimmedName) {
       toast.error(UI_TEXT.conversationNameRequired);
@@ -1095,23 +1085,11 @@
         name: trimmedName,
         lines: reindexDraftLines(draftLines)
       };
-      const response =
-        selectedConversationId === null
-          ? await createConversation(payload)
-          : await updateConversation(selectedConversationId, payload);
+      const response = await updateConversation(routeConversationId, payload);
       const savedConversation = response.conversation;
-      conversations =
-        selectedConversationId === null
-          ? [savedConversation, ...conversations]
-          : conversations.map((conversation) =>
-              conversation.id === savedConversation.id ? savedConversation : conversation
-            );
+      loadedConversation = savedConversation;
       loadConversationIntoDraft(savedConversation);
       toast.success(response.message || UI_TEXT.conversationSaved);
-      await goto(resolve(`/conversation/${savedConversation.id}`), {
-        replaceState: true,
-        noScroll: true
-      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationSaveFailed;
       toast.error(errorMessage);
@@ -1121,20 +1099,18 @@
   }
 
   async function deleteSelectedConversation() {
-    if (selectedConversationId === null || !selectedConversation) return;
+    if (routeConversationId === null || !loadedConversation) return;
     if (
-      !window.confirm(UI_TEXT.conversationDeletePrompt.replace('{name}', selectedConversation.name))
+      !window.confirm(UI_TEXT.conversationDeletePrompt.replace('{name}', loadedConversation.name))
     ) {
       return;
     }
 
     try {
-      const response = await deleteConversation(selectedConversationId);
-      conversations = conversations.filter(
-        (conversation) => conversation.id !== selectedConversationId
-      );
+      const response = await deleteConversation(routeConversationId);
       stopConversationPlayback();
       loadConversationIntoDraft(null);
+      loadedConversation = null;
       toast.success(response.message || UI_TEXT.conversationDeleted);
       await goto(resolve('/conversation'), { replaceState: true, noScroll: true });
     } catch (error) {
@@ -1144,22 +1120,21 @@
     }
   }
 
-  async function openConversation(conversationId: number) {
-    const conversation = conversations.find((entry) => entry.id === conversationId) ?? null;
-    if (!conversation) return;
-    loadConversationIntoDraft(conversation);
+  async function goBackToConversationList() {
     stopConversationPlayback();
-    await goto(resolve(`/conversation/${conversation.id}`), {
-      replaceState: true,
-      noScroll: true
-    });
+    await goto(resolve('/conversation'), { noScroll: true });
   }
 
-  async function startNewConversation() {
-    stopConversationPlayback();
-    loadConversationIntoDraft(null);
-    await goto(resolve('/conversation'), { replaceState: true, noScroll: true });
-  }
+  $effect(() => {
+    dashboardHeaderState.setState({
+      status,
+      modelReady,
+      modelDevice,
+      isBusy,
+      onLoadModel: handleLoadModel,
+      onUnloadModel: handleUnloadModel
+    });
+  });
 
   $effect(() => {
     if (playbackAudioElement && playbackReadyResolver) {
@@ -1169,9 +1144,18 @@
   });
 
   $effect(() => {
-    if (!hasLoadedConversations && !isLoadingConversations) {
-      void refreshConversations();
+    if (hasAttemptedConversationLoad || isLoadingConversation) {
+      return;
     }
+
+    hasAttemptedConversationLoad = true;
+
+    if (routeConversationId === null) {
+      conversationLoadErrorMessage = UI_TEXT.conversationDetailUnavailable;
+      return;
+    }
+
+    void refreshConversation();
   });
 
   $effect(() => {
@@ -1213,31 +1197,8 @@
     }
   });
 
-  $effect(() => {
-    const routeConversationId = Number(page.params.id);
-    if (
-      !hasLoadedConversations ||
-      !Number.isFinite(routeConversationId) ||
-      routeConversationId <= 0
-    ) {
-      if (!page.params.id && !hasDraftConversation && hasLoadedVoices) {
-        loadConversationIntoDraft(null);
-      }
-      return;
-    }
-
-    if (selectedConversationId === routeConversationId) {
-      return;
-    }
-
-    const conversation = conversations.find((entry) => entry.id === routeConversationId) ?? null;
-    if (conversation) {
-      loadConversationIntoDraft(conversation);
-      stopConversationPlayback();
-    }
-  });
-
   onDestroy(() => {
+    dashboardHeaderState.reset();
     stopConversationPlayback();
     resetCloneRefAudioPreview();
     discardCloneRefRecording();
@@ -1246,30 +1207,22 @@
   });
 </script>
 
-<svelte:head>
-  <title>{PAGE_TITLE} | Conversation</title>
-  <meta name="description" content="Create and manage multi-voice conversations." />
-</svelte:head>
+<Button variant="outline" class="gap-2" onclick={goBackToConversationList}>
+  <ArrowLeftIcon class="size-4" />
+  {UI_TEXT.conversationBackButton}
+</Button>
 
-<div class="bg-background text-foreground min-h-screen">
-  <DashboardHeader
-    {status}
-    {modelReady}
-    {modelDevice}
-    {isBusy}
-    onLoadModel={handleLoadModel}
-    onUnloadModel={handleUnloadModel}
-  />
-
-  <main class="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
-    <ConversationSidebar
-      {conversations}
-      {selectedConversationId}
-      {isLoadingConversations}
-      onNewConversation={startNewConversation}
-      onOpenConversation={openConversation}
-    />
-
+{#if isLoadingConversation}
+  <div class="text-muted-foreground flex items-center gap-2 text-sm">
+    <LoaderIcon class="size-4 animate-spin" />
+    {UI_TEXT.conversationDetailLoading}
+  </div>
+{:else if conversationLoadErrorMessage}
+  <div class="rounded-xl border border-dashed px-4 py-6 text-sm">
+    {conversationLoadErrorMessage}
+  </div>
+{:else}
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
     <div class="space-y-4">
       <ConversationEditor
         {selectedConversationId}
@@ -1320,52 +1273,52 @@
       }}
       onGenerateLine={generateLine}
     />
-  </main>
+  </div>
+{/if}
 
-  <VoiceSelectionSheet
-    bind:open={isVoiceSheetOpen}
-    {cloneView}
-    {isRecordMode}
-    {savedCloneSettings}
-    {selectedCloneSettingId}
-    {selectedCloneSetting}
-    isCloneSettingsLoading={isLoadingVoices}
-    hasLoadedCloneSettings={hasLoadedVoices}
-    {isSavingCloneSetting}
-    {isUpdatingCloneSetting}
-    {isDeletingCloneSetting}
-    {canSaveCloneSetting}
-    {canUpdateCloneSetting}
-    {canDeleteCloneSetting}
-    {cloneSettingsMessage}
-    {cloneSettingsErrorMessage}
-    bind:cloneSettingName
-    bind:cloneRefText
-    bind:cloneLang
-    bind:cloneSpeed
-    bind:cloneNumStep
-    {cloneRefAudioFile}
-    {cloneRefAudioPreviewUrl}
-    {cloneRefAudioInputKey}
-    {cloneRefAudioIsMicrophoneRecording}
-    {isRecordingCloneRefAudio}
-    {recordingElapsedLabel}
-    {microphoneStatusMessage}
-    {microphoneStatusIsError}
-    {isSpeechRecognitionSupported}
-    {canRecordCloneRefAudio}
-    {mediaStream}
-    onSelectVoice={handleSelectVoice}
-    onStartAddUpload={handleStartAddUpload}
-    onStartAddRecord={handleStartAddRecord}
-    onStartEditVoice={handleStartEditVoice}
-    onSaveCloneSetting={handleSaveCloneSetting}
-    onUpdateCloneSetting={handleUpdateSelectedCloneSetting}
-    onDeleteVoice={handleDeleteSavedCloneSetting}
-    onDeleteSelectedVoice={handleDeleteSelectedCloneSetting}
-    onBackToList={handleBackToList}
-    onRefreshVoices={refreshVoices}
-    onToggleRecording={handleToggleCloneRefRecording}
-    onRefAudioChange={handleRefAudioChange}
-  />
-</div>
+<VoiceSelectionSheet
+  bind:open={isVoiceSheetOpen}
+  {cloneView}
+  {isRecordMode}
+  {savedCloneSettings}
+  {selectedCloneSettingId}
+  {selectedCloneSetting}
+  isCloneSettingsLoading={isLoadingVoices}
+  hasLoadedCloneSettings={hasLoadedVoices}
+  {isSavingCloneSetting}
+  {isUpdatingCloneSetting}
+  {isDeletingCloneSetting}
+  {canSaveCloneSetting}
+  {canUpdateCloneSetting}
+  {canDeleteCloneSetting}
+  {cloneSettingsMessage}
+  {cloneSettingsErrorMessage}
+  bind:cloneSettingName
+  bind:cloneRefText
+  bind:cloneLang
+  bind:cloneSpeed
+  bind:cloneNumStep
+  {cloneRefAudioFile}
+  {cloneRefAudioPreviewUrl}
+  {cloneRefAudioInputKey}
+  {cloneRefAudioIsMicrophoneRecording}
+  {isRecordingCloneRefAudio}
+  {recordingElapsedLabel}
+  {microphoneStatusMessage}
+  {microphoneStatusIsError}
+  {isSpeechRecognitionSupported}
+  {canRecordCloneRefAudio}
+  {mediaStream}
+  onSelectVoice={handleSelectVoice}
+  onStartAddUpload={handleStartAddUpload}
+  onStartAddRecord={handleStartAddRecord}
+  onStartEditVoice={handleStartEditVoice}
+  onSaveCloneSetting={handleSaveCloneSetting}
+  onUpdateCloneSetting={handleUpdateSelectedCloneSetting}
+  onDeleteVoice={handleDeleteSavedCloneSetting}
+  onDeleteSelectedVoice={handleDeleteSelectedCloneSetting}
+  onBackToList={handleBackToList}
+  onRefreshVoices={refreshVoices}
+  onToggleRecording={handleToggleCloneRefRecording}
+  onRefAudioChange={handleRefAudioChange}
+/>
