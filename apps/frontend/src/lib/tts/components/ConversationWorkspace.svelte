@@ -91,7 +91,6 @@
   let recordingElapsedMs = $state(0);
   let mediaStream = $state<MediaStream | null>(null);
   let isSavingConversation = $state(false);
-  let errorMessage = $state('');
   let selectedConversationId = $state<number | null>(null);
   let draftName = $state('');
   let draftLines = $state<ConversationLineMutation[]>([]);
@@ -912,18 +911,17 @@
   }
 
   async function handleLoadModel() {
-    errorMessage = '';
     try {
       await ensureModelLoaded();
     } catch (error) {
       status = 'error';
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.loadModelFailed;
+
+      const errorMessage = error instanceof Error ? error.message : UI_TEXT.loadModelFailed;
       toast.error(errorMessage);
     }
   }
 
   async function handleUnloadModel() {
-    errorMessage = '';
     status = 'unloading-model';
     try {
       const payload = await unloadModel();
@@ -934,7 +932,7 @@
     } catch (error) {
       status = 'error';
       modelDevice = null;
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.unloadModelFailed;
+      const errorMessage = error instanceof Error ? error.message : UI_TEXT.unloadModelFailed;
       toast.error(errorMessage);
     }
   }
@@ -963,7 +961,7 @@
         loadConversationIntoDraft(null);
       }
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationLoadFailed;
+      const errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationLoadFailed;
       toast.error(errorMessage);
     } finally {
       isLoadingConversations = false;
@@ -987,7 +985,8 @@
         selectedLineIndex = 0;
       }
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.savedCloneSettingsFailed;
+      const errorMessage =
+        error instanceof Error ? error.message : UI_TEXT.savedCloneSettingsFailed;
       toast.error(errorMessage);
     } finally {
       isLoadingVoices = false;
@@ -1020,11 +1019,10 @@
 
     const trimmedText = line.text.trim();
     if (!trimmedText) {
-      errorMessage = UI_TEXT.enterTextError;
+      toast.error(UI_TEXT.enterTextError);
       return;
     }
 
-    errorMessage = '';
     activeGeneratingConversationLineIndex = lineIndex;
 
     try {
@@ -1070,7 +1068,8 @@
       status = 'success';
     } catch (error) {
       status = 'error';
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationGenerateFailed;
+      const errorMessage =
+        error instanceof Error ? error.message : UI_TEXT.conversationGenerateFailed;
       toast.error(errorMessage);
     } finally {
       activeGeneratingConversationLineIndex = null;
@@ -1080,17 +1079,16 @@
   async function saveCurrentConversation() {
     const trimmedName = draftName.trim();
     if (!trimmedName) {
-      errorMessage = UI_TEXT.conversationNameRequired;
+      toast.error(UI_TEXT.conversationNameRequired);
       return;
     }
 
     if (draftLines.length === 0) {
-      errorMessage = UI_TEXT.conversationNeedsLine;
+      toast.error(UI_TEXT.conversationNeedsLine);
       return;
     }
 
     isSavingConversation = true;
-    errorMessage = '';
 
     try {
       const payload = {
@@ -1115,7 +1113,7 @@
         noScroll: true
       });
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationSaveFailed;
+      const errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationSaveFailed;
       toast.error(errorMessage);
     } finally {
       isSavingConversation = false;
@@ -1140,7 +1138,8 @@
       toast.success(response.message || UI_TEXT.conversationDeleted);
       await goto(resolve('/conversation'), { replaceState: true, noScroll: true });
     } catch (error) {
-      errorMessage = error instanceof Error ? error.message : UI_TEXT.conversationDeleteFailed;
+      const errorMessage =
+        error instanceof Error ? error.message : UI_TEXT.conversationDeleteFailed;
       toast.error(errorMessage);
     }
   }
@@ -1283,7 +1282,6 @@
         {playbackAudioSrc}
         bind:playbackAudioElement
         {isSavingConversation}
-        {errorMessage}
         onDraftNameChange={(value) => (draftName = value)}
         onSelectLine={(lineIndex) => (selectedLineIndex = lineIndex)}
         onPlayConversation={playFullConversation}

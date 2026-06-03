@@ -16,8 +16,8 @@
   import CircleDotIcon from 'lucide-svelte/icons/circle-dot';
   import CheckIcon from 'lucide-svelte/icons/check';
   import PencilLineIcon from 'lucide-svelte/icons/pencil-line';
+  import Wand from 'lucide-svelte/icons/wand-sparkles';
   import SquareIcon from 'lucide-svelte/icons/square';
-  import GenerateAudioButton from '$lib/tts/components/GenerateAudioButton.svelte';
 
   let {
     selectedConversationId,
@@ -30,7 +30,6 @@
     playbackAudioSrc,
     playbackAudioElement = $bindable(null),
     isSavingConversation,
-    errorMessage,
     onDraftNameChange,
     onSelectLine,
     onPlayConversation,
@@ -52,7 +51,6 @@
     playbackAudioSrc: string;
     playbackAudioElement?: HTMLAudioElement | null;
     isSavingConversation: boolean;
-    errorMessage: string;
     onDraftNameChange: (value: string) => void;
     onSelectLine: (lineIndex: number) => void;
     onPlayConversation: () => void | Promise<void>;
@@ -129,12 +127,6 @@
       />
     </div>
 
-    {#if errorMessage}
-      <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-        {errorMessage}
-      </div>
-    {/if}
-
     <AudioPlayer
       bind:audioElement={playbackAudioElement}
       src={playbackAudioSrc}
@@ -146,10 +138,115 @@
 
     <div class="space-y-3">
       {#each draftLines as line, index (line.position)}
-        <div
+        <Card.Root
+          class={`gap-2 border border-accent pt-2 w-full ${selectedLineIndex === index ? 'border-secondary bg-primary/6' : ''}`}
+          role="button"
+          onclick={() => onSelectLine(index)}
+        >
+          <Card.Header class="">
+            <Card.Title class="flex gap-2">
+              <div class="flex flex-row justify-between w-full">
+                <div class="flex items-center justify-start gap-1 relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="gap-1.5 pl-0"
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      onSelectLine(index);
+                    }}
+                  >
+                    <PencilLineIcon class="size-4" />
+                    {UI_TEXT.conversationConfigureButton}
+                  </Button>
+                  <Badge variant="outline">{UI_TEXT.conversationLineLabel} {index + 1}</Badge>
+                  <Badge variant="outline">{line.voice_label}</Badge>
+                  {#if playingLineIndex === index}
+                    <Badge variant="secondary" class="gap-1.5 absolute top-1 right-1">
+                      <CircleDotIcon class="size-3 animate-pulse" />
+                      {UI_TEXT.conversationLinePlaying}
+                    </Badge>
+                  {/if}
+                </div>
+                <div class="flex items-end justify-end gap-0">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Move line ${index + 1} up`}
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      onMoveLine(index, -1);
+                    }}
+                    disabled={index === 0}
+                  >
+                    <ArrowUpIcon class="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Move line ${index + 1} down`}
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      onMoveLine(index, 1);
+                    }}
+                    disabled={index === draftLines.length - 1}
+                  >
+                    <ArrowDownIcon class="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Delete line ${index + 1}`}
+                    onclick={(event) => {
+                      event.stopPropagation();
+                      onDeleteLine(index);
+                    }}
+                  >
+                    <Trash2Icon class="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card.Title>
+          </Card.Header>
+          <Card.Content class="space-y-3 w-full">
+            <div class="flex flex-row justify-between items-center w-full">
+              <p class="text-sm leading-relaxed break-words text-wrap max-w-[85%]">
+                {line.text || UI_TEXT.conversationLineEmpty}
+              </p>
+              <Button
+                class="cursor-pointer "
+                variant="outline"
+                size="lg"
+                title={line.audio_url
+                  ? UI_TEXT.conversationLineRegenerate
+                  : UI_TEXT.conversationLineGenerate}
+                onclick={() => {
+                  onSelectLine(index);
+                  void onGenerateLine(line);
+                }}
+              >
+                {#if activeGeneratingConversationLineIndex === index}
+                  <LoaderIcon class="size-4 animate-spin" />
+                {:else}
+                  <Wand class="size-4" />
+                {/if}
+              </Button>
+            </div>
+            {#if line.audio_url}
+              <div class="mt-3">
+                <AudioPlayer
+                  src={line.audio_url}
+                  preload="metadata"
+                  ariaLabel={`Conversation line ${index + 1} audio`}
+                />
+              </div>
+            {/if}
+          </Card.Content>
+        </Card.Root>
+        <!-- <div
           role="button"
           tabindex="0"
-          class={`w-full rounded-xl border px-4 py-4 text-left transition-colors ${selectedLineIndex === index ? 'border-primary bg-primary/5' : 'bg-muted/20 hover:bg-muted/35'} ${playingLineIndex === index ? 'ring-primary ring-2' : ''}`}
+          class={`w-full rounded-xl border px-4 py-4 text-left transition-colors ${selectedLineIndex === index ? 'border-accent bg-primary/5' : 'bg-muted/20 hover:bg-muted/35'} ${playingLineIndex === index ? 'ring-primary ring-2' : ''}`}
           onclick={() => onSelectLine(index)}
           onkeydown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -246,7 +343,7 @@
               />
             </div>
           {/if}
-        </div>
+        </div> -->
       {/each}
     </div>
 

@@ -111,7 +111,7 @@
 </script>
 
 <Sheet.Root bind:open>
-  <Sheet.Content side="right" class="flex w-full flex-col sm:max-w-md">
+  <Sheet.Content side="right" class="flex w-full flex-col sm:w-full">
     <Sheet.Header class="pb-2">
       <Sheet.Title>
         {#if sheetView === 'list'}
@@ -126,7 +126,7 @@
       </Sheet.Title>
     </Sheet.Header>
 
-    <div class="flex flex-1 flex-col overflow-hidden px-1">
+    <div class="flex flex-1 flex-col overflow-hidden px-2">
       {#if sheetView === 'list'}
         <!-- Search + action buttons -->
         <VoiceLibraryBrowser
