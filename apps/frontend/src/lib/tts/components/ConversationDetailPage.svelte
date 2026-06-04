@@ -49,13 +49,6 @@
 
   let { conversationId }: { conversationId: string } = $props();
 
-  type InstructionField =
-    | 'selected_gender'
-    | 'selected_accent'
-    | 'selected_pitch'
-    | 'selected_age'
-    | 'selected_style';
-
   let status = $state<RequestStatus>('idle');
   let modelReady = $state(false);
   let modelDevice = $state<string | null>(null);
@@ -520,15 +513,6 @@
     draftLines = [...draftLines];
   }
 
-  function updateSelectedLineField<K extends keyof ConversationLineMutation>(
-    field: K,
-    value: ConversationLineMutation[K]
-  ) {
-    if (!selectedLine) return;
-    selectedLine[field] = value;
-    refreshCurrentLineReference();
-  }
-
   function updateInstructionLine(line: ConversationLineMutation) {
     line.instruct = buildInstruct([
       line.selected_gender,
@@ -566,12 +550,6 @@
   function updateSelectedLineVoiceType(voiceType: ConversationVoiceType) {
     if (!selectedLine) return;
     updateLineVoiceType(selectedLine, voiceType);
-  }
-
-  function updateSelectedInstructionField(field: InstructionField, value: string) {
-    if (!selectedLine) return;
-    selectedLine[field] = value;
-    updateInstructionLine(selectedLine);
   }
 
   function addLine() {
@@ -1254,11 +1232,6 @@
       {activeGeneratingConversationLineIndex}
       {savedCloneSettings}
       onUpdateVoiceType={updateSelectedLineVoiceType}
-      onUpdateInstructionField={updateSelectedInstructionField}
-      onUpdateLanguage={(value) => updateSelectedLineField('lang', value)}
-      onUpdateText={(value) => updateSelectedLineField('text', value)}
-      onUpdateSpeed={(value) => updateSelectedLineField('speed', value)}
-      onUpdateNumStep={(value) => updateSelectedLineField('num_step', value)}
       onOpenVoiceLibrary={() => {
         cloneView = 'list';
         isRecordMode = false;

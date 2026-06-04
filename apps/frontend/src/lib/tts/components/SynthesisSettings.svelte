@@ -20,7 +20,7 @@
     selectedPitch = $bindable(''),
     selectedAge = $bindable(''),
     selectedStyle = $bindable(''),
-    instruct = ''
+    instruct = $bindable('')
   }: {
     lang?: string;
     speed?: number;

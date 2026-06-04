@@ -263,7 +263,6 @@ export const UI_TEXT = {
   conversationLineConfigTitle: 'Line configuration',
   conversationSelectLinePrompt: 'Select a conversation line to edit its configuration.',
   conversationVoiceSourceLabel: 'Voice source',
-  conversationVoiceLibraryLabel: 'Voice library',
   conversationNoVoiceSelected: 'No voice selected.',
   conversationVoiceInstructionLabel: 'Voice instruction',
   conversationGenerateLineButton: 'Generate line',
