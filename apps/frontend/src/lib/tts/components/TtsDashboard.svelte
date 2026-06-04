@@ -164,14 +164,14 @@
 <form class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]" onsubmit={onSubmit}>
   <!-- Left column: Text input + Audio output -->
   <div class="flex flex-col gap-4">
-    <TextInputCard bind:mode bind:synthesizeInputText bind:cloneInputText {status} {canSubmit} />
+    <TextInputCard {mode} bind:synthesizeInputText bind:cloneInputText {status} {canSubmit} />
 
     <AudioOutputCard {audioUrl} {errorMessage} {responseMessage} {lastRequest} {status} />
   </div>
 
   <!-- Right column: Voice panel + Settings -->
   <VoicePanel
-    {mode}
+    bind:mode
     {cloneView}
     {isRecordMode}
     bind:isVoiceSheetOpen

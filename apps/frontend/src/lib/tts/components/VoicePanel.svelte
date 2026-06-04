@@ -1,20 +1,17 @@
 <script lang="ts">
   import * as Card from '$lib/components/ui/card/index.js';
-  import { Button } from '$lib/components/ui/button/index.js';
-  import { Badge } from '$lib/components/ui/badge/index.js';
 
   import MicIcon from 'lucide-svelte/icons/mic';
-  import ChevronRightIcon from 'lucide-svelte/icons/chevron-right';
   import SlidersIcon from 'lucide-svelte/icons/sliders';
-  import WandSparklesIcon from 'lucide-svelte/icons/wand-sparkles';
   import SynthesisSettings from './SynthesisSettings.svelte';
   import CloneSettings from './CloneSettings.svelte';
+  import VoiceSourceConfig from './VoiceSourceConfig.svelte';
   import VoiceSelectionSheet from './VoiceSelectionSheet.svelte';
   import type { TtsMode, CloneView, SavedCloneSetting } from '$lib/tts/types';
-  import { LANGUAGES, DEFAULT_FORM_STATE, UI_TEXT } from '$lib/tts/constants';
+  import { DEFAULT_FORM_STATE, UI_TEXT } from '$lib/tts/constants';
 
   let {
-    mode,
+    mode = $bindable('synthesize'),
     cloneView,
     isRecordMode,
     isVoiceSheetOpen = $bindable(false),
@@ -69,7 +66,7 @@
     onToggleRecording,
     onRefAudioChange
   }: {
-    mode: TtsMode;
+    mode?: TtsMode;
     cloneView: CloneView;
     isRecordMode: boolean;
     isVoiceSheetOpen?: boolean;
@@ -126,11 +123,6 @@
   } = $props();
 
   const isCloneMode = $derived(mode === 'clone');
-  const selectedVoiceLangLabel = $derived(
-    LANGUAGES.find((l) => l.value === selectedCloneSetting?.lang)?.label ??
-      selectedCloneSetting?.lang?.toUpperCase() ??
-      ''
-  );
 </script>
 
 <div class="flex flex-col gap-4">
@@ -143,68 +135,51 @@
       </Card.Title>
     </Card.Header>
 
-    <Card.Content class="space-y-3">
-      <!-- Current voice display -->
-      {#if isCloneMode && selectedCloneSetting}
-        <div class="bg-muted/40 flex items-center gap-3 rounded-lg px-3 py-2.5">
-          <div class="bg-primary/15 flex size-8 shrink-0 items-center justify-center rounded-full">
-            <MicIcon class="text-primary size-4" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-foreground truncate text-sm font-medium">
-              {selectedCloneSetting.name}
-            </p>
-            <p class="text-muted-foreground text-xs">{selectedVoiceLangLabel}</p>
-          </div>
-          <Badge variant="secondary" class="shrink-0 text-xs">Active</Badge>
-        </div>
-      {:else}
-        <div
-          class="bg-muted/20 flex items-center gap-3 rounded-lg border border-dashed border-zinc-700 px-3 py-2.5"
-        >
-          <div class="bg-muted flex size-8 shrink-0 items-center justify-center rounded-full">
-            <WandSparklesIcon class="text-muted-foreground size-4" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-foreground text-sm font-medium">Synthesize mode</p>
-            <p class="text-muted-foreground text-xs">No voice clone selected</p>
-          </div>
-        </div>
-      {/if}
-
-      <Button variant="outline" class="w-full gap-2" onclick={() => (isVoiceSheetOpen = true)}>
-        {isCloneMode && selectedCloneSetting ? 'Change Voice' : 'Select Voice'}
-        <ChevronRightIcon class="size-3.5" />
-      </Button>
-    </Card.Content>
-  </Card.Root>
-
-  <!-- Settings Card -->
-  <Card.Root>
-    <Card.Header class="pb-3">
-      <Card.Title class="flex items-center gap-2 text-sm font-semibold">
-        <SlidersIcon class="size-4" />
-        {isCloneMode ? 'Clone Settings' : UI_TEXT.settingsTitle}
-      </Card.Title>
-    </Card.Header>
     <Card.Content>
-      {#if isCloneMode}
-        <CloneSettings bind:cloneLang bind:cloneSpeed bind:cloneNumStep />
-      {:else}
-        <SynthesisSettings
-          bind:lang={synthesizeLang}
-          bind:speed={synthesizeSpeed}
-          bind:numStep={synthesizeNumStep}
-          bind:selectedGender
-          bind:selectedAccent
-          bind:selectedPitch
-          bind:selectedAge
-          bind:selectedStyle
-          {instruct}
-        />
-      {/if}
+      <VoiceSourceConfig
+        value={isCloneMode ? 'clone' : 'instruction'}
+        onValueChange={(value) => {
+          mode = value === 'clone' ? 'clone' : 'synthesize';
+        }}
+        {savedCloneSettings}
+        {selectedCloneSetting}
+        onOpenVoiceLibrary={() => {
+          isVoiceSheetOpen = true;
+        }}
+        noVoiceSelectedMessage={UI_TEXT.conversationNoVoiceSelected}
+        selectedVoiceBadgeLabel="Active"
+      >
+        {#snippet instructionContent()}
+          <SynthesisSettings
+            bind:lang={synthesizeLang}
+            bind:speed={synthesizeSpeed}
+            bind:numStep={synthesizeNumStep}
+            bind:selectedGender
+            bind:selectedAccent
+            bind:selectedPitch
+            bind:selectedAge
+            bind:selectedStyle
+            {instruct}
+          />
+        {/snippet}
+      </VoiceSourceConfig>
     </Card.Content>
   </Card.Root>
+
+  {#if isCloneMode}
+    <!-- Settings Card -->
+    <Card.Root>
+      <Card.Header class="pb-3">
+        <Card.Title class="flex items-center gap-2 text-sm font-semibold">
+          <SlidersIcon class="size-4" />
+          Clone Settings
+        </Card.Title>
+      </Card.Header>
+      <Card.Content>
+        <CloneSettings bind:cloneLang bind:cloneSpeed bind:cloneNumStep />
+      </Card.Content>
+    </Card.Root>
+  {/if}
 </div>
 
 <!-- Voice Selection Sheet (rendered here, uses portal) -->

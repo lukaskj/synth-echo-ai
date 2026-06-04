@@ -9,7 +9,9 @@ export type RequestStatus =
 
 export type TtsMode = 'synthesize' | 'clone';
 
-export type ConversationVoiceType = 'clone' | 'instruction';
+export type VoiceSourceType = 'clone' | 'instruction';
+
+export type ConversationVoiceType = VoiceSourceType;
 
 export type SelectOption = {
   value: string;

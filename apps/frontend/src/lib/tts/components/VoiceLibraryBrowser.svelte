@@ -25,6 +25,7 @@
     onStartEditVoice,
     onDeleteVoice,
     onRefreshVoices,
+    listClass = 'flex-1',
     showCreateActions = true,
     showManagementActions = true
   }: {
@@ -40,6 +41,7 @@
     onStartEditVoice?: (id: number) => void;
     onDeleteVoice?: (id: number) => void;
     onRefreshVoices: () => void;
+    listClass?: string;
     showCreateActions?: boolean;
     showManagementActions?: boolean;
   } = $props();
@@ -120,7 +122,7 @@
   </div>
 {/if}
 
-<ScrollArea class="flex-1">
+<ScrollArea class={listClass}>
   {#if isCloneSettingsLoading && !hasLoadedCloneSettings}
     <div class="text-muted-foreground py-8 text-center text-sm">{UI_TEXT.loadingVoices}</div>
   {:else if filteredVoices.length === 0}
