@@ -1,55 +1,58 @@
 # AGENTS.md
 
-## Sources Of Truth
-- Prefer executable sources over prose: root `package.json`, `scripts/back-*.ts`, `apps/frontend/package.json`, `apps/frontend/{vite.config.ts,svelte.config.js,eslint.config.js}`, and backend code under `apps/backend/tts_backend/`.
-- Run Bun from the repo root. `bun install` runs `bun run backend:setup`, so `python` must be on `PATH` and `apps/backend/.venv` will be created or refreshed.
-- `bun run backend:setup` installs `apps/backend/requirements.txt` only. It does not install PyTorch, so keep the manual `torch` / `torchaudio` install step in the READMEs if setup changes.
-- When setup, commands, env behavior, or app structure changes, update `README.md` and the relevant app README in the same change.
-
-## Repo Shape
-- Repo = static SvelteKit frontend in `apps/frontend` plus Flask API in `apps/backend`.
-- Only `apps/frontend` is a Bun workspace package. Use the root backend scripts instead of treating `apps/backend` as a workspace package.
-- `apps/frontend/src/routes/+page.svelte` is a thin wrapper; the real UI lives under `apps/frontend/src/lib/tts/`, with `components/TtsWorkspace.svelte` as the top-level feature component.
-- Frontend HTTP calls are centralized in `apps/frontend/src/lib/tts/api.ts`; shared API paths/default backend URL live in `constants.ts`, and URL/error helpers live in `helpers.ts`.
-- `apps/backend/app.py` only boots Flask. App wiring is in `apps/backend/tts_backend/factory.py`; route behavior is in `apps/backend/tts_backend/routes.py`.
-- Pages should primarily compose components and manage page-level concerns.
-- Extract distinct UI sections into separate components by default.
-- Avoid large blocks inside page files.
-- If a page contains multiple visual sections, create separate components for them.
-- Favor separation of concerns, readability, and reusability over minimizing the number of files.
+## Trust These
+- Prefer executable sources: root `package.json`, `scripts/back-setup.ts`, `scripts/python.ts`, `apps/frontend/package.json`, `apps/frontend/{vite.config.ts,svelte.config.js,eslint.config.js}`, and backend code under `apps/backend/tts_backend/`.
+- Current `README*` files are partly stale. They still mention `bun run frontend:dev`, `bun run backend:dev`, and `scripts/back-run.ts`, but those do not exist in the current repo.
 
 ## Commands
-- Frontend dev: `bun run frontend:dev`
+- Run Bun from the repo root.
+- `bun install` runs `bun run backend:setup`; `python` must be on `PATH`.
+- `bun run backend:setup` creates or refreshes `apps/backend/.venv` and installs only `apps/backend/requirements.txt`; it does not install `torch` or `torchaudio`.
+- Frontend dev: `bun run frontend`
 - Frontend lint: `bun run --cwd apps/frontend lint`
 - Frontend typecheck: `bun run --cwd apps/frontend check`
 - Frontend build: `bun run --cwd apps/frontend build`
 - Frontend format: `bun run --cwd apps/frontend format`
 - Frontend tests: `bun run --cwd apps/frontend test:unit -- --run`
-- Single frontend test file: `bun run --cwd apps/frontend test:unit -- --run path/to/spec.ts`
-- Backend venv/deps refresh: `bun run backend:setup`
-- Backend dev server: `bun run backend:dev`
-- Lightweight backend verification from `apps/backend`: `python -m compileall app.py tts_backend`
-- Do not use `bun run frontend:start`; the root script points to a nonexistent `apps/frontend start` script.
+- Single frontend test: `bun run --cwd apps/frontend test:unit -- --run path/to/spec.ts`
+- Combined lint: `bun run lint:all`
+- Backend dev: `bun run backend`
+- Backend quick verify from `apps/backend`: `python -m compileall app.py tts_backend`
 
-## Frontend Gotchas
-- Keep the frontend static unless deployment assumptions are changing: `@sveltejs/adapter-static` is enabled, `src/routes/+layout.ts` sets `prerender = true`, and `svelte.config.js` prerenders `'/api/mock-tts'`.
+## Structure
+- Only `apps/frontend` is a Bun workspace package. Treat `apps/backend` as a plain Python app driven by the root Bun scripts.
+- Frontend route files are thin wrappers: `apps/frontend/src/routes/+page.svelte`, `apps/frontend/src/routes/conversation/+page.svelte`, and `apps/frontend/src/routes/conversation/[conversationId]/+page.svelte`. The real UI lives under `apps/frontend/src/lib/tts/components/`.
+- Frontend HTTP calls are centralized in `apps/frontend/src/lib/tts/api.ts`; shared API paths and the default backend URL live in `constants.ts`; URL/error helpers live in `helpers.ts`.
+- `apps/backend/app.py` only boots Flask. App wiring is in `apps/backend/tts_backend/factory.py`; request handling is in `apps/backend/tts_backend/routes.py`.
+
+## Frontend
+- The app is intentionally static: `@sveltejs/adapter-static` uses `fallback: '200.html'`, and `apps/frontend/src/routes/+layout.ts` sets `prerender = true`.
+- `apps/frontend/src/routes/api/mock-tts/+server.ts` is prerendered and returns canned audio for UI work without Flask.
 - App code is forced into Svelte 5 runes mode in `apps/frontend/svelte.config.js`; do not introduce legacy Svelte APIs.
-- For any Svelte component or module work, use the `svelte-core-bestpractices` skill guidance while writing or editing code.
-- Browser code talks directly to Flask via `PUBLIC_BACKEND_BASE_URL`; default is `http://127.0.0.1:5000`.
-- `apps/frontend/src/routes/api/mock-tts/+server.ts` is the prerendered mock endpoint for UI work without the Flask backend.
-- Tailwind is configured through `@tailwindcss/vite` plus `src/routes/layout.css`; there is no `tailwind.config.*`.
-- Vitest is split in `vite.config.ts`: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, everything else runs in Node. Browser specs need Playwright browsers installed.
-- `vite.config.ts` sets `expect: { requireAssertions: true }`; every test must include at least one assertion or it will fail.
-- No meaningful app test files exist yet; `src/lib/vitest-examples/` has only starter examples.
+- Tailwind is configured through `@tailwindcss/vite` and `apps/frontend/src/routes/layout.css`; there is no `tailwind.config.*`.
+- Browser code talks directly to Flask via `PUBLIC_BACKEND_BASE_URL`; the default is `http://127.0.0.1:5000`.
+- `apps/frontend/vite.config.ts` splits Vitest by file type: `*.svelte.{test,spec}.*` runs in Playwright/Chromium, everything else runs in Node.
+- `apps/frontend/vite.config.ts` sets `expect: { requireAssertions: true }`; every test needs at least one assertion.
+- Current frontend tests are only starter examples in `apps/frontend/src/lib/vitest-examples/`.
 
-## Backend Gotchas
-- Flask routes are mounted under `/api/v1`, not `/api`.
-- Model state matters: a second `/load` while loading returns `409`, and `/synthesize` / `/clone` return `409` until the model is loaded.
-- Clone settings persist in `apps/backend/data/clone_settings.sqlite3`; uploaded reference audio persists in `apps/backend/storage/clone_settings/`.
-- There is no standalone migration system. Schema creation and the inline column/path migration live in `apps/backend/tts_backend/repositories/clone_settings_repository.py`.
-- Device selection lives in `apps/backend/tts_backend/config.py`. Priority is CUDA > MPS > CPU: CUDA is checked first and returned immediately if available; MPS is only used if CUDA is unavailable. On machines with both, CUDA wins.
-- `POST /api/v1/load` triggers a `OmniVoice.from_pretrained("k2-fsa/OmniVoice", ...)` download on first use. This requires internet access and can take several minutes.
-- `ref_audio` and `ref_text` are immutable after a clone setting is created; the update endpoint (`POST /settings/update-clone/<id>`) rejects both fields with `400`.
+### Frontend Component Guidelines 
+- Pages should primarily compose components and manage page-level concerns.
+- Extract distinct UI sections into separate components by default.
+- Avoid large blocks inside page files.
+- If a page contains multiple visual sections, create separate components for them.
+- Favor separation of concerns, readability, and reusability over minimizing the number of files.
+- Use svelte-code-writer and svelte-core-bestpractices skills when creating or updating svelte components.
 
-## Runtime Artifacts
+## Backend
+- API routes are mounted under `/api/v1`, not `/api`.
+- First `POST /api/v1/load` downloads `k2-fsa/OmniVoice`; it needs internet and can take several minutes.
+- Model state is strict: a second `/load` while loading returns `409`; `/synthesize` and `/clone` return `409` until the model is loaded; `/unload` also returns `409` while loading.
+- Generated audio is saved under `apps/backend/storage/generated_audio/`, and synth/clone endpoints return `audio_url` values instead of raw audio bytes.
+- Clone settings and conversations share `apps/backend/data/clone_settings.sqlite3`; uploaded reference audio lives in `apps/backend/storage/clone_settings/`.
+- There is no standalone migration system. Clone-setting schema/path migration lives in `apps/backend/tts_backend/repositories/clone_settings_repository.py`; conversation table creation lives in `apps/backend/tts_backend/repositories/conversation_repository.py`.
+- `ref_audio` and `ref_text` are immutable after clone setting creation; `POST /settings/update-clone/<id>` rejects both with `400`.
+- Device selection in `apps/backend/tts_backend/config.py` is CUDA -> MPS -> CPU.
+
+## Artifacts
 - Ignore `apps/backend/.venv/`, `apps/backend/data/`, `apps/backend/storage/`, `apps/frontend/.svelte-kit/`, `apps/frontend/build/`, `apps/frontend/dist/`, `apps/frontend/artifacts/`, and `node_modules/`.
+- If you change setup, commands, or app structure, update `README.md` and the affected app README in the same change.
