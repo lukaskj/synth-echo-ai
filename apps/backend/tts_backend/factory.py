@@ -9,18 +9,19 @@ from flask_cors import CORS
 from .constants import API_PREFIX
 from .repositories.clone_settings_repository import CloneSettingsRepository
 from .repositories.conversation_repository import ConversationRepository
-from .routes import create_api_blueprint
+from .routes import (
+    AUDIO_STORAGE_EXTENSION_KEY,
+    CLONE_SETTINGS_SERVICE_EXTENSION_KEY,
+    CONVERSATION_SERVICE_EXTENSION_KEY,
+    GENERATED_AUDIO_SERVICE_EXTENSION_KEY,
+    MODEL_SERVICE_EXTENSION_KEY,
+    create_api_blueprint,
+)
 from .services.clone_settings_service import CloneSettingsService
 from .services.conversation_service import ConversationService
 from .services.generated_audio_service import GeneratedAudioService
 from .services.model_service import ModelService
 from .storage import AudioStorage
-
-
-MODEL_SERVICE_EXTENSION_KEY = "tts_model_service"
-CLONE_SETTINGS_SERVICE_EXTENSION_KEY = "clone_settings_service"
-CONVERSATION_SERVICE_EXTENSION_KEY = "conversation_service"
-
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -44,14 +45,10 @@ def create_app() -> Flask:
     app.extensions[MODEL_SERVICE_EXTENSION_KEY] = model_service
     app.extensions[CLONE_SETTINGS_SERVICE_EXTENSION_KEY] = clone_settings_service
     app.extensions[CONVERSATION_SERVICE_EXTENSION_KEY] = conversation_service
+    app.extensions[AUDIO_STORAGE_EXTENSION_KEY] = audio_storage
+    app.extensions[GENERATED_AUDIO_SERVICE_EXTENSION_KEY] = generated_audio_service
     app.register_blueprint(
-        create_api_blueprint(
-            model_service,
-            clone_settings_service,
-            conversation_service,
-            audio_storage,
-            generated_audio_service,
-        ),
+        create_api_blueprint(),
         url_prefix=API_PREFIX,
     )
     return app

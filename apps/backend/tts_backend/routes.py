@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, current_app, jsonify, request, send_file
 
 from .schemas import CloneRequest, CloneSetting, CloneSettingUpdateRequest, Conversation, ConversationLine
 from .services.clone_settings_service import (
@@ -34,222 +34,157 @@ from .validation import (
 )
 
 
-def create_api_blueprint(
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-    conversation_service: ConversationService,
-    audio_storage: AudioStorage,
-    generated_audio_service: GeneratedAudioService,
-) -> Blueprint:
-    api = Blueprint("api", __name__)
+MODEL_SERVICE_EXTENSION_KEY = "tts_model_service"
+CLONE_SETTINGS_SERVICE_EXTENSION_KEY = "clone_settings_service"
+CONVERSATION_SERVICE_EXTENSION_KEY = "conversation_service"
+AUDIO_STORAGE_EXTENSION_KEY = "audio_storage"
+GENERATED_AUDIO_SERVICE_EXTENSION_KEY = "generated_audio_service"
 
-    _register_hello_route(api)
-    _register_generated_audio_route(api, model_service, generated_audio_service)
-    _register_load_model_route(api, model_service)
-    _register_unload_model_route(api, model_service)
-    _register_synthesize_route(api, model_service, generated_audio_service)
-    _register_clone_route(api, model_service, clone_settings_service, audio_storage, generated_audio_service)
-    _register_list_conversations_route(api, model_service, conversation_service)
-    _register_get_conversation_route(api, model_service, conversation_service)
-    _register_create_conversation_route(api, model_service, conversation_service)
-    _register_update_conversation_route(api, model_service, conversation_service, generated_audio_service)
-    _register_delete_conversation_route(api, model_service, conversation_service, generated_audio_service)
-    _register_save_clone_setting_route(api, model_service, clone_settings_service, audio_storage)
-    _register_save_clone_recording_setting_route(api, model_service, clone_settings_service, audio_storage)
-    _register_get_clone_setting_routes(api, model_service, clone_settings_service)
-    _register_get_clone_setting_audio_route(api, model_service, clone_settings_service, audio_storage)
-    _register_update_clone_setting_route(api, model_service, clone_settings_service)
-    _register_delete_clone_setting_route(api, model_service, clone_settings_service, audio_storage)
-    _register_get_clone_settings_route(api, model_service, clone_settings_service)
+api = Blueprint("api", __name__)
 
+
+def _model_service() -> ModelService:
+    return cast(ModelService, current_app.extensions[MODEL_SERVICE_EXTENSION_KEY])
+
+
+def _clone_settings_service() -> CloneSettingsService:
+    return cast(CloneSettingsService, current_app.extensions[CLONE_SETTINGS_SERVICE_EXTENSION_KEY])
+
+
+def _conversation_service() -> ConversationService:
+    return cast(ConversationService, current_app.extensions[CONVERSATION_SERVICE_EXTENSION_KEY])
+
+
+def _audio_storage() -> AudioStorage:
+    return cast(AudioStorage, current_app.extensions[AUDIO_STORAGE_EXTENSION_KEY])
+
+
+def _generated_audio_service() -> GeneratedAudioService:
+    return cast(GeneratedAudioService, current_app.extensions[GENERATED_AUDIO_SERVICE_EXTENSION_KEY])
+
+
+def create_api_blueprint() -> Blueprint:
     return api
 
 
-def _register_hello_route(api: Blueprint) -> None:
-    @api.get("/hello")
-    def hello_world() -> str:
-        return _hello_world()
+@api.get("/hello")
+def hello_world() -> str:
+    return _hello_world()
 
 
-def _register_generated_audio_route(
-    api: Blueprint,
-    model_service: ModelService,
-    generated_audio_service: GeneratedAudioService,
-) -> None:
-    @api.get("/generated-audio/<string:filename>")
-    def get_generated_audio(filename: str):
-        return _get_generated_audio(model_service, generated_audio_service, filename)
+@api.get("/generated-audio/<string:filename>")
+def get_generated_audio(filename: str):
+    return _get_generated_audio(_model_service(), _generated_audio_service(), filename)
 
 
-def _register_load_model_route(api: Blueprint, model_service: ModelService) -> None:
-    @api.post("/load")
-    def load_model():
-        return _load_model(model_service)
+@api.post("/load")
+def load_model():
+    return _load_model(_model_service())
 
 
-def _register_unload_model_route(api: Blueprint, model_service: ModelService) -> None:
-    @api.post("/unload")
-    def unload_model():
-        return _unload_model(model_service)
+@api.post("/unload")
+def unload_model():
+    return _unload_model(_model_service())
 
 
-def _register_synthesize_route(
-    api: Blueprint,
-    model_service: ModelService,
-    generated_audio_service: GeneratedAudioService,
-) -> None:
-    @api.post("/synthesize")
-    def synthesize_speech():
-        return _synthesize_speech(model_service, generated_audio_service)
+@api.post("/synthesize")
+def synthesize_speech():
+    return _synthesize_speech(_model_service(), _generated_audio_service())
 
 
-def _register_clone_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-    audio_storage: AudioStorage,
-    generated_audio_service: GeneratedAudioService,
-) -> None:
-    @api.post("/clone")
-    def clone_voice():
-        return _clone_voice(model_service, clone_settings_service, audio_storage, generated_audio_service)
+@api.post("/clone")
+def clone_voice():
+    return _clone_voice(
+        _model_service(),
+        _clone_settings_service(),
+        _audio_storage(),
+        _generated_audio_service(),
+    )
 
 
-def _register_list_conversations_route(
-    api: Blueprint,
-    model_service: ModelService,
-    conversation_service: ConversationService,
-) -> None:
-    @api.get("/conversations")
-    def list_conversations():
-        return _list_conversations(model_service, conversation_service)
+@api.get("/conversations")
+def list_conversations():
+    return _list_conversations(_model_service(), _conversation_service())
 
 
-def _register_get_conversation_route(
-    api: Blueprint,
-    model_service: ModelService,
-    conversation_service: ConversationService,
-) -> None:
-    @api.get("/conversations/<int:conversation_id>")
-    def get_conversation(conversation_id: int):
-        return _get_conversation(model_service, conversation_service, conversation_id)
+@api.get("/conversations/<int:conversation_id>")
+def get_conversation(conversation_id: int):
+    return _get_conversation(_model_service(), _conversation_service(), conversation_id)
 
 
-def _register_create_conversation_route(
-    api: Blueprint,
-    model_service: ModelService,
-    conversation_service: ConversationService,
-) -> None:
-    @api.post("/conversations")
-    def create_conversation():
-        return _create_conversation(model_service, conversation_service)
+@api.post("/conversations")
+def create_conversation():
+    return _create_conversation(_model_service(), _conversation_service())
 
 
-def _register_update_conversation_route(
-    api: Blueprint,
-    model_service: ModelService,
-    conversation_service: ConversationService,
-    generated_audio_service: GeneratedAudioService,
-) -> None:
-    @api.post("/conversations/update/<int:conversation_id>")
-    def update_conversation(conversation_id: int):
-        return _update_conversation(
-            model_service,
-            conversation_service,
-            generated_audio_service,
-            conversation_id,
-        )
+@api.post("/conversations/update/<int:conversation_id>")
+def update_conversation(conversation_id: int):
+    return _update_conversation(
+        _model_service(),
+        _conversation_service(),
+        _generated_audio_service(),
+        conversation_id,
+    )
 
 
-def _register_delete_conversation_route(
-    api: Blueprint,
-    model_service: ModelService,
-    conversation_service: ConversationService,
-    generated_audio_service: GeneratedAudioService,
-) -> None:
-    @api.delete("/conversations/delete/<int:conversation_id>")
-    def delete_conversation(conversation_id: int):
-        return _delete_conversation(
-            model_service,
-            conversation_service,
-            generated_audio_service,
-            conversation_id,
-        )
+@api.delete("/conversations/delete/<int:conversation_id>")
+def delete_conversation(conversation_id: int):
+    return _delete_conversation(
+        _model_service(),
+        _conversation_service(),
+        _generated_audio_service(),
+        conversation_id,
+    )
 
 
-def _register_save_clone_setting_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-    audio_storage: AudioStorage,
-) -> None:
-    @api.post("/settings/save-clone")
-    def save_clone_setting():
-        return _save_clone_setting(model_service, clone_settings_service, audio_storage)
+@api.post("/settings/save-clone")
+def save_clone_setting():
+    return _save_clone_setting(_model_service(), _clone_settings_service(), _audio_storage())
 
 
-def _register_save_clone_recording_setting_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-    audio_storage: AudioStorage,
-) -> None:
-    @api.post("/settings/save-clone-recording")
-    def save_clone_recording_setting():
-        return _save_clone_recording_setting(model_service, clone_settings_service, audio_storage)
+@api.post("/settings/save-clone-recording")
+def save_clone_recording_setting():
+    return _save_clone_recording_setting(
+        _model_service(),
+        _clone_settings_service(),
+        _audio_storage(),
+    )
 
 
-def _register_get_clone_setting_routes(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-) -> None:
-    @api.get("/settings/get-clone/<int:setting_id>")
-    @api.get("/settings/get-clones/<int:setting_id>")
-    def get_clone_setting(setting_id: int):
-        return _get_clone_setting(model_service, clone_settings_service, setting_id)
+@api.get("/settings/get-clone/<int:setting_id>")
+@api.get("/settings/get-clones/<int:setting_id>")
+def get_clone_setting(setting_id: int):
+    return _get_clone_setting(_model_service(), _clone_settings_service(), setting_id)
 
 
-def _register_get_clone_setting_audio_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-    audio_storage: AudioStorage,
-) -> None:
-    @api.get("/settings/get-clone-audio/<int:setting_id>")
-    def get_clone_setting_audio(setting_id: int):
-        return _get_clone_setting_audio(model_service, clone_settings_service, audio_storage, setting_id)
+@api.get("/settings/get-clone-audio/<int:setting_id>")
+def get_clone_setting_audio(setting_id: int):
+    return _get_clone_setting_audio(
+        _model_service(),
+        _clone_settings_service(),
+        _audio_storage(),
+        setting_id,
+    )
 
 
-def _register_update_clone_setting_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-) -> None:
-    @api.post("/settings/update-clone/<int:setting_id>")
-    def update_clone_setting(setting_id: int):
-        return _update_clone_setting(model_service, clone_settings_service, setting_id)
+@api.post("/settings/update-clone/<int:setting_id>")
+def update_clone_setting(setting_id: int):
+    return _update_clone_setting(_model_service(), _clone_settings_service(), setting_id)
 
 
-def _register_delete_clone_setting_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-    audio_storage: AudioStorage,
-) -> None:
-    @api.delete("/settings/delete-clone/<int:setting_id>")
-    def delete_clone_setting(setting_id: int):
-        return _delete_clone_setting(model_service, clone_settings_service, audio_storage, setting_id)
+@api.delete("/settings/delete-clone/<int:setting_id>")
+def delete_clone_setting(setting_id: int):
+    return _delete_clone_setting(
+        _model_service(),
+        _clone_settings_service(),
+        _audio_storage(),
+        setting_id,
+    )
 
 
-def _register_get_clone_settings_route(
-    api: Blueprint,
-    model_service: ModelService,
-    clone_settings_service: CloneSettingsService,
-) -> None:
-    @api.get("/settings/get-clones")
-    def get_clone_settings():
-        return _get_clone_settings(model_service, clone_settings_service)
+@api.get("/settings/get-clones")
+def get_clone_settings():
+    return _get_clone_settings(_model_service(), _clone_settings_service())
 
 
 def _hello_world() -> str:
