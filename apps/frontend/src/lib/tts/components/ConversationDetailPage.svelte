@@ -979,6 +979,51 @@
     return response;
   }
 
+  async function generateCloneLineAudio(line: ConversationLineMutation, trimmedText: string) {
+    if (line.clone_setting_id === null) {
+      throw new Error(UI_TEXT.selectCloneSettingError);
+    }
+
+    status = 'cloning';
+    const payload = await cloneAudio({
+      text: trimmedText,
+      settingId: line.clone_setting_id,
+      lang: line.lang,
+      speed: line.speed,
+      numStep: line.num_step
+    });
+    line.audio_url = payload.audio_url;
+    line.voice_label =
+      savedCloneSettings.find((setting) => setting.id === line.clone_setting_id)?.name ??
+      line.voice_label;
+    await persistDraftConversation();
+    toast.success(payload.message || UI_TEXT.cloneComplete);
+  }
+
+  async function generateInstructionLineAudio(line: ConversationLineMutation, trimmedText: string) {
+    updateInstructionLine(line);
+    status = 'synthesizing';
+    const payload = await synthesizeAudio({
+      text: trimmedText,
+      lang: line.lang,
+      speed: line.speed,
+      num_step: line.num_step,
+      instruct: line.instruct
+    });
+    line.audio_url = payload.audio_url;
+    await persistDraftConversation();
+    toast.success(payload.message || UI_TEXT.synthesisComplete);
+  }
+
+  async function generateLineAudio(line: ConversationLineMutation, trimmedText: string) {
+    if (line.voice_type === 'clone') {
+      await generateCloneLineAudio(line, trimmedText);
+      return;
+    }
+
+    await generateInstructionLineAudio(line, trimmedText);
+  }
+
   async function generateLine(line: ConversationLineMutation) {
     if (!line) return;
 
@@ -994,39 +1039,7 @@
 
     try {
       await ensureModelLoaded();
-      if (line.voice_type === 'clone') {
-        if (line.clone_setting_id === null) {
-          throw new Error(UI_TEXT.selectCloneSettingError);
-        }
-
-        status = 'cloning';
-        const payload = await cloneAudio({
-          text: trimmedText,
-          settingId: line.clone_setting_id,
-          lang: line.lang,
-          speed: line.speed,
-          numStep: line.num_step
-        });
-        line.audio_url = payload.audio_url;
-        line.voice_label =
-          savedCloneSettings.find((setting) => setting.id === line.clone_setting_id)?.name ??
-          line.voice_label;
-        await persistDraftConversation();
-        toast.success(payload.message || UI_TEXT.cloneComplete);
-      } else {
-        updateInstructionLine(line);
-        status = 'synthesizing';
-        const payload = await synthesizeAudio({
-          text: trimmedText,
-          lang: line.lang,
-          speed: line.speed,
-          num_step: line.num_step,
-          instruct: line.instruct
-        });
-        line.audio_url = payload.audio_url;
-        await persistDraftConversation();
-        toast.success(payload.message || UI_TEXT.synthesisComplete);
-      }
+      await generateLineAudio(line, trimmedText);
       draftLines = [...draftLines];
       status = 'success';
     } catch (error) {

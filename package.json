@@ -9,7 +9,9 @@
     "run:front": "bun run --cwd apps/frontend",
     "python": "bun scripts/python.ts",
     "pip": "bun python -m pip",
-    "lint:all": "bun run:front lint && bun python -m ruff check"
+    "lint:front": "bun run:front lint",
+    "lint:back": "bun python -m ruff check",
+    "lint:all": "bun lint:front && bun lint:back"
   },
   "workspaces": [
     "apps/frontend"
