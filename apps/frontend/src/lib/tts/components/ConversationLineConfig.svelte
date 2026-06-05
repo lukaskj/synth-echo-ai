@@ -2,6 +2,7 @@
   import * as Card from '$lib/components/ui/card/index.js';
   import { Textarea } from '$lib/components/ui/textarea/index.js';
   import AudioPlayer from '$lib/tts/components/AudioPlayer.svelte';
+  import CloneSettings from '$lib/tts/components/CloneSettings.svelte';
   import GenerateAudioButton from '$lib/tts/components/GenerateAudioButton.svelte';
   import SynthesisSettings from '$lib/tts/components/SynthesisSettings.svelte';
   import VoiceSourceConfig from '$lib/tts/components/VoiceSourceConfig.svelte';
@@ -79,6 +80,13 @@
           {onOpenVoiceLibrary}
           noVoiceSelectedMessage={UI_TEXT.conversationNoVoiceSelected}
         >
+          {#snippet cloneContent()}
+            <CloneSettings
+              bind:cloneLang={selectedLine.lang}
+              bind:cloneSpeed={selectedLine.speed}
+              bind:cloneNumStep={selectedLine.num_step}
+            />
+          {/snippet}
           {#snippet instructionContent()}
             <div class="space-y-3">
               <SynthesisSettings

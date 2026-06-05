@@ -17,6 +17,7 @@
     onOpenVoiceLibrary,
     noVoiceSelectedMessage = UI_TEXT.conversationNoVoiceSelected,
     selectedVoiceBadgeLabel = '',
+    cloneContent,
     instructionContent
   }: {
     value: VoiceSourceType;
@@ -26,6 +27,7 @@
     onOpenVoiceLibrary: () => void;
     noVoiceSelectedMessage?: string;
     selectedVoiceBadgeLabel?: string;
+    cloneContent?: Snippet;
     instructionContent?: Snippet;
   } = $props();
 
@@ -72,6 +74,8 @@
         </div>
       </div>
     {/if}
+
+    {@render cloneContent?.()}
 
     <Button variant="outline" class="w-full gap-2" onclick={onOpenVoiceLibrary}>
       {UI_TEXT.selectVoiceButton}
