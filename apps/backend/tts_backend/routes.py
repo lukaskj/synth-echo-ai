@@ -18,7 +18,6 @@ from .services.conversation_service import (
 )
 from .services.generated_audio_service import GeneratedAudioService
 from .services.model_service import (
-    LoadResult,
     ModelLoadInProgressError,
     ModelNotLoadedError,
     ModelService,
@@ -63,7 +62,7 @@ def create_api_blueprint(
     @api.post("/load")
     def load_model():
         try:
-            result = model_service.load()
+            model_service.load()
         except ModelLoadInProgressError as exc:
             return _json_error(str(exc), model_service, HTTPStatus.CONFLICT)
         except Exception as exc:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gc
-from enum import Enum
 from threading import Lock
 from typing import Any
 
@@ -113,7 +112,6 @@ class ModelService:
 
     @staticmethod
     def _create_model() -> tuple[Any, Device]:
-        import torch
         from omnivoice import OmniVoice
 
         device, dtype, model_device = Config.resolve_model_device_dtype()
