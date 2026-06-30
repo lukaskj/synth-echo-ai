@@ -492,6 +492,7 @@
       position: index,
       text: line.text,
       voice_type: line.voice_type,
+      persisted_voice_type: line.voice_type,
       clone_setting_id: line.clone_setting_id,
       voice_label: line.voice_label,
       audio_url: line.audio_url,
@@ -528,14 +529,42 @@
   }
 
   function updateLineVoiceType(line: ConversationLineMutation, voiceType: ConversationVoiceType) {
+    const preservedAudioUrl = line.audio_url;
+    const persistedVoiceType = line.persisted_voice_type;
+
     if (voiceType === 'clone') {
       const nextLine = createCloneLine(line.position);
-      draftLines[line.position] = { ...nextLine, text: line.text };
+      draftLines[line.position] = {
+        ...nextLine,
+        text: line.text,
+        audio_url: preservedAudioUrl,
+        persisted_voice_type: persistedVoiceType
+      };
     } else {
       const nextLine = createInstructionLine(line.position);
-      draftLines[line.position] = { ...nextLine, text: line.text };
+      draftLines[line.position] = {
+        ...nextLine,
+        text: line.text,
+        audio_url: preservedAudioUrl,
+        persisted_voice_type: persistedVoiceType
+      };
     }
     refreshCurrentLineReference();
+  }
+
+  function buildConversationDraftLines(resetAudioOnVoiceTypeChange = false) {
+    return reindexDraftLines(draftLines).map((line) => {
+      const shouldResetAudio =
+        resetAudioOnVoiceTypeChange &&
+        Boolean(line.audio_url) &&
+        line.persisted_voice_type !== undefined &&
+        line.persisted_voice_type !== line.voice_type;
+
+      return {
+        ...line,
+        audio_url: shouldResetAudio ? '' : line.audio_url
+      };
+    });
   }
 
   function updateCloneSelection(line: ConversationLineMutation, settingId: string) {
@@ -973,7 +1002,7 @@
 
     const response = await updateConversation(routeConversationId, {
       name: draftName.trim(),
-      lines: reindexDraftLines(draftLines)
+      lines: buildConversationDraftLines()
     });
     const savedConversation = response.conversation;
     loadedConversation = savedConversation;
@@ -1076,7 +1105,7 @@
     try {
       const payload = {
         name: trimmedName,
-        lines: reindexDraftLines(draftLines)
+        lines: buildConversationDraftLines(true)
       };
       const response = await updateConversation(routeConversationId, payload);
       const savedConversation = response.conversation;

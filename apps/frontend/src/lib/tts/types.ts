@@ -143,6 +143,7 @@ export type ConversationLineMutation = {
   position: number;
   text: string;
   voice_type: ConversationVoiceType;
+  persisted_voice_type?: ConversationVoiceType;
   clone_setting_id: number | null;
   voice_label: string;
   audio_url: string;

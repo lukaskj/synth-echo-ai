@@ -105,10 +105,15 @@ function normalizeConversation(conversation: Conversation): Conversation {
 function serializeConversationPayload(payload: ConversationMutation): ConversationMutation {
   return {
     ...payload,
-    lines: payload.lines.map((line) => ({
-      ...line,
-      audio_url: toBackendRelativeAssetUrl(apiBaseUrl, line.audio_url)
-    }))
+    lines: payload.lines.map((line) => {
+      const serializedLine = { ...line };
+      delete serializedLine.persisted_voice_type;
+
+      return {
+        ...serializedLine,
+        audio_url: toBackendRelativeAssetUrl(apiBaseUrl, line.audio_url)
+      };
+    })
   };
 }
 
@@ -197,7 +202,11 @@ export async function downloadConversationAudio(conversationId: number) {
   const blob = await response.blob();
   const contentDisposition = response.headers.get('content-disposition') || '';
   const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const fallbackDateString = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
+  const fallbackDateString = new Date()
+    .toISOString()
+    .slice(0, 19)
+    .replace('T', '_')
+    .replace(/:/g, '-');
 
   return {
     blob,

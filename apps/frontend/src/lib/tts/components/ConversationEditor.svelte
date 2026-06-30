@@ -80,34 +80,34 @@
     class="gap-1.5"
     onclick={isConversationPlaying ? onStopConversationPlayback : onPlayConversation}
     disabled={!isConversationPlaying && !canPlayConversation}
-    >
-      {#if isConversationPlaying}
-        <SquareIcon class="size-4" />
+  >
+    {#if isConversationPlaying}
+      <SquareIcon class="size-4" />
       {UI_TEXT.conversationStopPlayButton}
     {:else}
       <PlayIcon class="size-4" />
       {UI_TEXT.conversationPlayButton}
+    {/if}
+  </Button>
+  {#if selectedConversationId !== null}
+    <Button
+      variant="outline"
+      class="gap-1.5"
+      onclick={onDownloadConversation}
+      disabled={!canDownloadConversation || isDownloadingConversation}
+    >
+      {#if isDownloadingConversation}
+        <LoaderIcon class="size-4 animate-spin" />
+        {UI_TEXT.conversationDownloadingButton}
+      {:else}
+        <DownloadIcon class="size-4" />
+        {UI_TEXT.conversationDownloadButton}
       {/if}
     </Button>
-    {#if selectedConversationId !== null}
-      <Button
-        variant="outline"
-        class="gap-1.5"
-        onclick={onDownloadConversation}
-        disabled={!canDownloadConversation || isDownloadingConversation}
-      >
-        {#if isDownloadingConversation}
-          <LoaderIcon class="size-4 animate-spin" />
-          {UI_TEXT.conversationDownloadingButton}
-        {:else}
-          <DownloadIcon class="size-4" />
-          {UI_TEXT.conversationDownloadButton}
-        {/if}
-      </Button>
-    {/if}
-    <Button class="gap-1.5" onclick={onSaveConversation} disabled={isSavingConversation}>
-      {#if isSavingConversation}
-        <LoaderIcon class="size-4 animate-spin" />
+  {/if}
+  <Button class="gap-1.5" onclick={onSaveConversation} disabled={isSavingConversation}>
+    {#if isSavingConversation}
+      <LoaderIcon class="size-4 animate-spin" />
     {:else}
       <CheckIcon class="size-4" />
     {/if}
