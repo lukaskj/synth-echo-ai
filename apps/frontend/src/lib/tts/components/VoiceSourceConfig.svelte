@@ -75,12 +75,11 @@
       </div>
     {/if}
 
-    {@render cloneContent?.()}
-
     <Button variant="outline" class="w-full gap-2" onclick={onOpenVoiceLibrary}>
       {UI_TEXT.selectVoiceButton}
       <ChevronRightIcon class="size-3.5" />
     </Button>
+    {@render cloneContent?.()}
   </Tabs.Content>
 
   <Tabs.Content value="instruction" class="pt-1">
