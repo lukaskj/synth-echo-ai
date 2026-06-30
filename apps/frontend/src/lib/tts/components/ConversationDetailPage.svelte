@@ -6,6 +6,7 @@
     cloneAudio,
     deleteCloneSetting,
     deleteConversation,
+    downloadConversationAudio,
     getConversation,
     getSavedCloneSetting,
     listSavedCloneSettings,
@@ -87,6 +88,7 @@
   let recordingElapsedMs = $state(0);
   let mediaStream = $state<MediaStream | null>(null);
   let isSavingConversation = $state(false);
+  let isDownloadingConversation = $state(false);
   let draftName = $state('');
   let draftLines = $state<ConversationLineMutation[]>([]);
   let selectedLineIndex = $state<number | null>(null);
@@ -1089,6 +1091,39 @@
     }
   }
 
+  async function downloadCurrentConversation() {
+    if (routeConversationId === null) {
+      toast.error(UI_TEXT.conversationDetailUnavailable);
+      return;
+    }
+
+    if (!draftLines.some((line) => Boolean(line.audio_url))) {
+      toast.error(UI_TEXT.conversationDownloadEmpty);
+      return;
+    }
+
+    isDownloadingConversation = true;
+
+    try {
+      const { blob, filename } = await downloadConversationAudio(routeConversationId);
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : UI_TEXT.conversationDownloadFailed;
+      toast.error(errorMessage);
+    } finally {
+      isDownloadingConversation = false;
+    }
+  }
+
   async function deleteSelectedConversation() {
     if (routeConversationId === null || !loadedConversation) return;
     if (
@@ -1226,10 +1261,12 @@
         {playbackAudioSrc}
         bind:playbackAudioElement
         {isSavingConversation}
+        {isDownloadingConversation}
         onDraftNameChange={(value) => (draftName = value)}
         onSelectLine={(lineIndex) => (selectedLineIndex = lineIndex)}
         onPlayConversation={playFullConversation}
         onStopConversationPlayback={stopConversationPlayback}
+        onDownloadConversation={downloadCurrentConversation}
         onSaveConversation={saveCurrentConversation}
         onDeleteConversation={deleteSelectedConversation}
         onMoveLine={moveLine}

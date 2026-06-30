@@ -14,6 +14,7 @@
   import PencilLineIcon from 'lucide-svelte/icons/pencil-line';
   import PlayIcon from 'lucide-svelte/icons/play';
   import PlusIcon from 'lucide-svelte/icons/plus';
+  import DownloadIcon from 'lucide-svelte/icons/download';
   import SquareIcon from 'lucide-svelte/icons/square';
   import Trash2Icon from 'lucide-svelte/icons/trash-2';
   import Wand from 'lucide-svelte/icons/wand-sparkles';
@@ -29,10 +30,12 @@
     playbackAudioSrc,
     playbackAudioElement = $bindable(null),
     isSavingConversation,
+    isDownloadingConversation,
     onDraftNameChange,
     onSelectLine,
     onPlayConversation,
     onStopConversationPlayback,
+    onDownloadConversation,
     onSaveConversation,
     onDeleteConversation,
     onMoveLine,
@@ -50,10 +53,12 @@
     playbackAudioSrc: string;
     playbackAudioElement?: HTMLAudioElement | null;
     isSavingConversation: boolean;
+    isDownloadingConversation: boolean;
     onDraftNameChange: (value: string) => void;
     onSelectLine: (lineIndex: number) => void;
     onPlayConversation: () => void | Promise<void>;
     onStopConversationPlayback: () => void;
+    onDownloadConversation: () => void | Promise<void>;
     onSaveConversation: () => void | Promise<void>;
     onDeleteConversation: () => void | Promise<void>;
     onMoveLine: (lineIndex: number, direction: -1 | 1) => void;
@@ -64,6 +69,9 @@
 
   const canPlayConversation = $derived(draftLines.some((line) => Boolean(line.audio_url)));
   const isConversationPlaying = $derived(playingLineIndex !== null);
+  const canDownloadConversation = $derived(
+    selectedConversationId !== null && draftLines.some((line) => Boolean(line.audio_url))
+  );
 </script>
 
 {#snippet conversationPrimaryActions()}
@@ -72,18 +80,34 @@
     class="gap-1.5"
     onclick={isConversationPlaying ? onStopConversationPlayback : onPlayConversation}
     disabled={!isConversationPlaying && !canPlayConversation}
-  >
-    {#if isConversationPlaying}
-      <SquareIcon class="size-4" />
+    >
+      {#if isConversationPlaying}
+        <SquareIcon class="size-4" />
       {UI_TEXT.conversationStopPlayButton}
     {:else}
       <PlayIcon class="size-4" />
       {UI_TEXT.conversationPlayButton}
+      {/if}
+    </Button>
+    {#if selectedConversationId !== null}
+      <Button
+        variant="outline"
+        class="gap-1.5"
+        onclick={onDownloadConversation}
+        disabled={!canDownloadConversation || isDownloadingConversation}
+      >
+        {#if isDownloadingConversation}
+          <LoaderIcon class="size-4 animate-spin" />
+          {UI_TEXT.conversationDownloadingButton}
+        {:else}
+          <DownloadIcon class="size-4" />
+          {UI_TEXT.conversationDownloadButton}
+        {/if}
+      </Button>
     {/if}
-  </Button>
-  <Button class="gap-1.5" onclick={onSaveConversation} disabled={isSavingConversation}>
-    {#if isSavingConversation}
-      <LoaderIcon class="size-4 animate-spin" />
+    <Button class="gap-1.5" onclick={onSaveConversation} disabled={isSavingConversation}>
+      {#if isSavingConversation}
+        <LoaderIcon class="size-4 animate-spin" />
     {:else}
       <CheckIcon class="size-4" />
     {/if}

@@ -13,6 +13,7 @@ export function getApiEndpoints(apiBaseUrl: string) {
     clone: `${apiBaseUrl}${API_PATHS.clone}`,
     conversations: `${apiBaseUrl}${API_PATHS.conversations}`,
     getConversation: (id: number) => `${apiBaseUrl}${API_PATHS.conversations}/${id}`,
+    downloadConversation: (id: number) => `${apiBaseUrl}${API_PATHS.downloadConversationBase}/${id}/download`,
     saveCloneSetting: `${apiBaseUrl}${API_PATHS.saveCloneSetting}`,
     saveCloneRecordingSetting: `${apiBaseUrl}${API_PATHS.saveCloneRecordingSetting}`,
     getCloneSettings: `${apiBaseUrl}${API_PATHS.getCloneSettings}`,

@@ -26,7 +26,7 @@
 
 <Card.Root class="h-fit">
   <Card.Header class="">
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center justify-between gap-3 mb-3 pl-1">
       <Card.Title class="text-sm font-semibold">{UI_TEXT.conversationSectionTitle}</Card.Title>
       <Button
         size="sm"

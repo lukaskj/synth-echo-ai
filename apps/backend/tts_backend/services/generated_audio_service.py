@@ -37,6 +37,13 @@ class GeneratedAudioService:
 
         return self._storage_dir / safe_filename
 
+    def resolve_url(self, audio_url: str) -> Path:
+        filename = self._get_filename_from_url(audio_url)
+        if filename is None:
+            raise FileNotFoundError(audio_url)
+
+        return self.resolve_filename(filename)
+
     def delete_by_url(self, audio_url: str) -> None:
         filename = self._get_filename_from_url(audio_url)
         if filename is None:

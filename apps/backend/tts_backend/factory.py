@@ -25,7 +25,7 @@ from .storage import AudioStorage
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, expose_headers=["Content-Disposition"])
 
     backend_root = Path(__file__).resolve().parents[1]
     model_service = ModelService()

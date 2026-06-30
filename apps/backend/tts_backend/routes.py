@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
+from io import BytesIO
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any, cast
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from flask import Blueprint, current_app, jsonify, request, send_file
 
@@ -130,6 +134,16 @@ def update_conversation(conversation_id: int):
 @api.delete("/conversations/delete/<int:conversation_id>")
 def delete_conversation(conversation_id: int):
     return _delete_conversation(
+        _model_service(),
+        _conversation_service(),
+        _generated_audio_service(),
+        conversation_id,
+    )
+
+
+@api.get("/conversations/<int:conversation_id>/download")
+def download_conversation(conversation_id: int):
+    return _download_conversation(
         _model_service(),
         _conversation_service(),
         _generated_audio_service(),
@@ -402,6 +416,72 @@ def _delete_conversation(
         generated_audio_service.delete_by_url(line.audio_url)
 
     return jsonify({"message": "Conversation deleted successfully.", "id": deleted_conversation.id}), HTTPStatus.OK
+
+
+def _download_conversation(
+    model_service: ModelService,
+    conversation_service: ConversationService,
+    generated_audio_service: GeneratedAudioService,
+    conversation_id: int,
+):
+    try:
+        conversation = conversation_service.get(conversation_id)
+    except ConversationNotFoundError as exc:
+        return _json_error("Conversation not found.", model_service, HTTPStatus.NOT_FOUND, str(exc))
+    except ConversationServiceError as exc:
+        return _json_error(
+            "Failed to load conversation.",
+            model_service,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            str(exc),
+        )
+
+    zip_buffer = BytesIO()
+    zipped_file_count = 0
+
+    try:
+        with ZipFile(zip_buffer, mode="w", compression=ZIP_DEFLATED) as zip_file:
+            for line in conversation.lines:
+                if not line.audio_url:
+                    continue
+
+                audio_path = generated_audio_service.resolve_url(line.audio_url)
+                if not audio_path.is_file():
+                    raise FileNotFoundError(str(audio_path))
+
+                zip_file.write(audio_path, arcname=_build_conversation_zip_filename(line.position, audio_path))
+                zipped_file_count += 1
+    except FileNotFoundError as exc:
+        return _json_error(
+            "Conversation audio file not found.",
+            model_service,
+            HTTPStatus.NOT_FOUND,
+            str(exc),
+        )
+    except OSError as exc:
+        return _json_error(
+            "Failed to prepare conversation download.",
+            model_service,
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            str(exc),
+        )
+
+    if zipped_file_count == 0:
+        return _json_error(
+            "Conversation has no generated audio to download.",
+            model_service,
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    now = datetime.now()
+    date_string = now.strftime("%Y-%m-%d_%H-%M-%S")
+    zip_buffer.seek(0)
+    conversation_name = _slugify_download_name(conversation.name)
+    if conversation_name:
+        zip_filename = f"conversation-{conversation_name}-{date_string}-{conversation.id}.zip"
+    else:
+        zip_filename = f"conversation-{date_string}-{conversation.id}.zip"
+    return send_file(zip_buffer, mimetype="application/zip", as_attachment=True, download_name=zip_filename)
 
 
 def _save_clone_setting(
@@ -709,6 +789,15 @@ def _build_clone_request_from_saved_setting(
         lang=lang,
         num_step=num_step,
     )
+
+
+def _build_conversation_zip_filename(position: int, audio_path: Path) -> str:
+    return f"{position + 1:02d}-{audio_path.name}"
+
+
+def _slugify_download_name(value: str) -> str:
+    sanitized = "".join(character if character.isalnum() else "-" for character in value.strip().lower())
+    return sanitized.strip("-")
 
 
 def _json_error(message: str, model_service: ModelService, status: HTTPStatus, error: str | None = None):

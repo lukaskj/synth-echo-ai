@@ -187,6 +187,24 @@ export async function deleteConversation(conversationId: number) {
   return (await response.json()) as ApiMessageResponse;
 }
 
+export async function downloadConversationAudio(conversationId: number) {
+  const response = await fetch(endpoints.downloadConversation(conversationId));
+
+  if (!response.ok) {
+    throw new Error(readErrorText(await response.text()));
+  }
+
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get('content-disposition') || '';
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const fallbackDateString = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
+
+  return {
+    blob,
+    filename: filenameMatch?.[1] || `conversation-${fallbackDateString}-${conversationId}.zip`
+  };
+}
+
 export async function listSavedCloneSettings() {
   const payload = await getJson<SavedCloneSettingListResponse>(endpoints.getCloneSettings);
   return payload.settings.map(normalizeCloneSetting);
