@@ -126,18 +126,20 @@
             : UI_TEXT.conversationEditDescription}
         </Card.Description>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        {@render conversationPrimaryActions()}
-        {#if selectedConversationId !== null}
-          <Button variant="ghost" class="gap-1.5 text-destructive" onclick={onDeleteConversation}>
-            <Trash2Icon class="size-4" />
-            {UI_TEXT.conversationDeleteButton}
-          </Button>
-        {/if}
-      </div>
     </div>
   </Card.Header>
   <Card.Content class="space-y-4">
+    <div class="flex flex-wrap justify-between">
+      <div class="flex flex-wrap items-center gap-2">
+        {@render conversationPrimaryActions()}
+      </div>
+      {#if selectedConversationId !== null}
+        <Button variant="ghost" class="gap-1.5 text-destructive" onclick={onDeleteConversation}>
+          <Trash2Icon class="size-4" />
+          {UI_TEXT.conversationDeleteButton}
+        </Button>
+      {/if}
+    </div>
     <div class="space-y-2">
       <Label for="conversation-title">{UI_TEXT.conversationNameLabel}</Label>
       <Input
