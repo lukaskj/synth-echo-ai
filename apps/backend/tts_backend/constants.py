@@ -1,6 +1,7 @@
 API_PREFIX = "/api/v1"
 
 SUPPORTED_LANGUAGES = frozenset({"en", "zh", "ja", "pt", "es", "fr", "de", "it", "ru"})
+CONVERSATION_VOICE_TYPES = frozenset({"clone", "instruction"})
 
 DEFAULT_SPEED = 1.0
 DEFAULT_LANG = "en"

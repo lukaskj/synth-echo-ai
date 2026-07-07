@@ -1,6 +1,6 @@
 # Backend
 
-Flask API for OmniVoice model loading, synthesis, voice cloning, and saved clone settings.
+Flask API for OmniVoice model loading, synthesis, voice cloning, saved clone settings, and saved conversations.
 
 ## Preferred Commands
 
@@ -65,14 +65,17 @@ python -m compileall app.py tts_backend
 - Health/demo route: `GET /api/v1/hello`
 - Model lifecycle: `POST /api/v1/load`, `POST /api/v1/unload`
 - Generation: `POST /api/v1/synthesize`, `POST /api/v1/clone`
+- Generated audio files are served from `GET /api/v1/generated-audio/<filename>`.
+- Conversation endpoints live under `/api/v1/conversations*`.
 - Saved clone setting endpoints live under `/api/v1/settings/*`.
 - A second `/load` while the model is loading returns `409`.
 - `/synthesize` and `/clone` also return `409` until the model is loaded.
 
 ## Persistence
 
-- Clone settings database: `apps/backend/data/clone_settings.sqlite3`
+- Clone settings and conversations database: `apps/backend/data/clone_settings.sqlite3`
 - Uploaded reference audio: `apps/backend/storage/clone_settings/`
+- Generated audio: `apps/backend/storage/generated_audio/`
 
 There is no standalone migration system. Schema creation and the current inline column/path migration both live in `tts_backend/repositories/clone_settings_repository.py`.
 

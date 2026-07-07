@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import {
     cloneAudio,
     deleteCloneSetting,
@@ -17,17 +16,12 @@
     formatElapsedTime,
     getPreferredRecordingMimeType,
     getRecordedFileExtension,
-    getSpeechRecognitionLocale,
-    getSpeechRecognitionConstructor
+    getSpeechRecognitionConstructor,
+    getSpeechRecognitionLocale
   } from '$lib/tts/audio';
   import TtsDashboard from '$lib/tts/components/TtsDashboard.svelte';
-  import {
-    DEFAULT_FORM_STATE,
-    LANGUAGES,
-    PAGE_DESCRIPTION,
-    PAGE_TITLE,
-    UI_TEXT
-  } from '$lib/tts/constants';
+  import { DEFAULT_FORM_STATE, LANGUAGES, UI_TEXT } from '$lib/tts/constants';
+  import { dashboardHeaderState } from '$lib/tts/dashboard-header-state.svelte';
   import { buildInstruct, revokeObjectUrl } from '$lib/tts/helpers';
   import type {
     CloneView,
@@ -39,18 +33,16 @@
     SpeechRecognitionInstance,
     TtsMode
   } from '$lib/tts/types';
+  import { onDestroy } from 'svelte';
 
-  // ─── Core state ──────────────────────────────────────────────────────────────
   let mode = $state<TtsMode>('synthesize');
   let cloneView = $state<CloneView>('list');
   let inputText = $state(DEFAULT_FORM_STATE.inputText);
   let cloneInputText = $state(DEFAULT_FORM_STATE.cloneInputText);
 
-  // ─── Voice sheet navigation ───────────────────────────────────────────────
   let isVoiceSheetOpen = $state(false);
   let isRecordMode = $state(false);
 
-  // ─── Clone setting form fields ────────────────────────────────────────────
   let cloneSettingName = $state(DEFAULT_FORM_STATE.cloneSettingName);
   let cloneRefText = $state(DEFAULT_FORM_STATE.cloneRefText);
   let cloneRefAudioFile = $state<File | null>(null);
@@ -58,7 +50,6 @@
   let cloneRefAudioInputKey = $state(0);
   let cloneRefAudioIsMicrophoneRecording = $state(false);
 
-  // ─── Recording state ──────────────────────────────────────────────────────
   let isRecordingCloneRefAudio = $state(false);
   let microphoneStatusMessage = $state('');
   let microphoneStatusIsError = $state(false);
@@ -66,7 +57,6 @@
   let recordingElapsedMs = $state(0);
   let mediaStream = $state<MediaStream | null>(null);
 
-  // ─── Synthesis parameters ─────────────────────────────────────────────────
   let lang = $state(DEFAULT_FORM_STATE.lang);
   let speed = $state(DEFAULT_FORM_STATE.speed);
   let numStep = $state(DEFAULT_FORM_STATE.numStep);
@@ -79,7 +69,6 @@
   let selectedAge = $state(DEFAULT_FORM_STATE.selectedAge);
   let selectedStyle = $state(DEFAULT_FORM_STATE.selectedStyle);
 
-  // ─── Request state ────────────────────────────────────────────────────────
   let status = $state<RequestStatus>('idle');
   let audioUrl = $state('');
   let errorMessage = $state('');
@@ -88,7 +77,6 @@
   let modelReady = $state(false);
   let modelDevice = $state<string | null>(null);
 
-  // ─── Clone settings management ────────────────────────────────────────────
   let cloneSettingsMessage = $state('');
   let cloneSettingsErrorMessage = $state('');
   let isCloneSettingsLoading = $state(false);
@@ -101,7 +89,6 @@
   let selectedCloneSettingId = $state<number | null>(null);
   let selectedCloneSetting = $state<SavedCloneSetting | null>(null);
 
-  // ─── Non-reactive recording internals ─────────────────────────────────────
   let mediaRecorder: MediaRecorder | null = null;
   let speechRecognition: SpeechRecognitionInstance | null = null;
   let recordingChunks: Blob[] = [];
@@ -110,7 +97,6 @@
   let recognitionShouldRemainActive = false;
   let discardPendingRecording = false;
 
-  // ─── Derived state ────────────────────────────────────────────────────────
   let isBusy = $derived(
     status === 'loading-model' ||
       status === 'unloading-model' ||
@@ -121,7 +107,6 @@
   let canClone = $derived(
     cloneInputText.trim().length > 0 && mode === 'clone' && selectedCloneSetting !== null && !isBusy
   );
-
   let canSaveCloneSetting = $derived(
     cloneSettingName.trim().length > 0 &&
       cloneRefText.trim().length > 0 &&
@@ -149,7 +134,7 @@
   let instruct = $derived(
     buildInstruct([selectedGender, selectedPitch, selectedAccent, selectedAge, selectedStyle])
   );
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+
   function resetAudioPreview() {
     revokeObjectUrl(audioUrl);
     audioUrl = '';
@@ -310,7 +295,6 @@
       return;
     }
 
-    // Update reactive mediaStream for waveform visualizer
     mediaStream = stream;
 
     try {
@@ -345,7 +329,6 @@
       resetRecordingState();
 
       if (shouldDiscard) return;
-
       if (recordedBlob.size === 0) {
         setMicrophoneStatus(UI_TEXT.recordingFailed, true);
         return;
@@ -391,13 +374,24 @@
     await startCloneRefRecording();
   }
 
-  // ─── Effects ──────────────────────────────────────────────────────────────
   onDestroy(() => {
+    dashboardHeaderState.reset();
     resetAudioPreview();
     resetCloneRefAudioPreview();
     discardCloneRefRecording();
     stopSpeechRecognition();
     stopMediaStream();
+  });
+
+  $effect(() => {
+    dashboardHeaderState.setState({
+      status,
+      modelReady,
+      modelDevice,
+      isBusy,
+      onLoadModel: handleLoadModel,
+      onUnloadModel: handleUnloadModel
+    });
   });
 
   $effect(() => {
@@ -411,7 +405,6 @@
   });
 
   $effect(() => {
-    // When the sheet closes, reset cloneView to 'list' so reopening always shows the voice list
     if (!isVoiceSheetOpen) {
       cloneView = 'list';
       cloneSettingsMessage = '';
@@ -431,14 +424,12 @@
   });
 
   $effect(() => {
-    // Discard recording when navigating away from the record view
     const isInRecordView = isVoiceSheetOpen && cloneView === 'create' && isRecordMode;
     if (!isInRecordView && (isRecordingCloneRefAudio || mediaStream !== null)) {
       discardCloneRefRecording();
     }
   });
 
-  // ─── Model actions ────────────────────────────────────────────────────────
   async function ensureModelLoaded() {
     if (modelReady) return;
     status = 'loading-model';
@@ -478,7 +469,6 @@
     }
   }
 
-  // ─── Generate speech ──────────────────────────────────────────────────────
   async function handleSynthesize(event?: SubmitEvent) {
     event?.preventDefault();
 
@@ -505,15 +495,15 @@
     try {
       await ensureModelLoaded();
       status = 'synthesizing';
-      const audioBlob = await synthesizeAudio({
+      const payload = await synthesizeAudio({
         text: trimmedText,
         lang,
         speed,
         num_step: numStep,
         instruct
       });
-      audioUrl = URL.createObjectURL(audioBlob);
-      responseMessage = UI_TEXT.synthesisComplete;
+      audioUrl = payload.audio_url;
+      responseMessage = payload.message || UI_TEXT.synthesisComplete;
       lastRequest = {
         mode: 'synthesize',
         text: trimmedText,
@@ -560,15 +550,15 @@
     try {
       await ensureModelLoaded();
       status = 'cloning';
-      const audioBlob = await cloneAudio({
+      const payload = await cloneAudio({
         text: trimmedText,
         settingId: activeCloneSetting.id,
         lang: cloneLang,
         speed: cloneSpeed,
         numStep: cloneNumStep
       });
-      audioUrl = URL.createObjectURL(audioBlob);
-      responseMessage = UI_TEXT.cloneComplete;
+      audioUrl = payload.audio_url;
+      responseMessage = payload.message || UI_TEXT.cloneComplete;
       lastRequest = {
         mode: 'clone',
         text: trimmedText,
@@ -594,7 +584,6 @@
     setMicrophoneStatus('');
   }
 
-  // ─── Clone settings CRUD ──────────────────────────────────────────────────
   async function refreshSavedCloneSettings() {
     isCloneSettingsLoading = true;
     cloneSettingsErrorMessage = '';
@@ -655,7 +644,6 @@
       if (typeof payload.id === 'number') {
         await handleSelectSavedCloneSetting(payload.id);
       }
-      // Switch to clone mode and close the sheet
       mode = 'clone';
       isVoiceSheetOpen = false;
     } catch (error) {
@@ -696,7 +684,6 @@
     cloneNumStep = DEFAULT_FORM_STATE.cloneNumStep;
   }
 
-  // Voice sheet navigation handlers
   function handleSelectVoice(settingId: number) {
     void handleSelectSavedCloneSetting(settingId).then(() => {
       mode = 'clone';
@@ -814,7 +801,6 @@
         setMicrophoneStatus('');
       }
       cloneSettingsMessage = UI_TEXT.cloneSettingDeletedSuccess;
-      // Go back to list after delete
       cloneView = 'list';
     } catch (error) {
       cloneSettingsErrorMessage =
@@ -825,26 +811,16 @@
   }
 </script>
 
-<svelte:head>
-  <title>{PAGE_TITLE}</title>
-  <meta name="description" content={PAGE_DESCRIPTION} />
-</svelte:head>
-
 <TtsDashboard
   bind:mode
   bind:synthesizeInputText={inputText}
   bind:cloneInputText
   {status}
-  {modelReady}
-  {modelDevice}
-  {isBusy}
   {audioUrl}
   {errorMessage}
   {responseMessage}
   {lastRequest}
   {canSubmit}
-  onLoadModel={handleLoadModel}
-  onUnloadModel={handleUnloadModel}
   onSubmit={handleSynthesize}
   bind:synthesizeLang={lang}
   bind:synthesizeSpeed={speed}

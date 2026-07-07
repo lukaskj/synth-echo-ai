@@ -7,7 +7,7 @@ const config = {
     runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
   },
   kit: {
-    adapter: adapter(),
+    adapter: adapter({ fallback: '200.html' }),
     prerender: {
       entries: ['*', '/api/mock-tts']
     }

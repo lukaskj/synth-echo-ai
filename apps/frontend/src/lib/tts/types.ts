@@ -9,6 +9,10 @@ export type RequestStatus =
 
 export type TtsMode = 'synthesize' | 'clone';
 
+export type VoiceSourceType = 'clone' | 'instruction';
+
+export type ConversationVoiceType = VoiceSourceType;
+
 export type SelectOption = {
   value: string;
   label: string;
@@ -37,6 +41,10 @@ export type ApiMessageResponse = {
   id?: number;
   state?: string;
   device?: string | null;
+};
+
+export type AudioGenerationResponse = ApiMessageResponse & {
+  audio_url: string;
 };
 
 export type SpeechRecognitionAlternative = {
@@ -99,6 +107,68 @@ export type SavedCloneSettingListResponse = {
 
 export type SavedCloneSettingResponse = {
   setting: SavedCloneSetting;
+};
+
+export type ConversationLine = {
+  id: number;
+  conversation_id: number;
+  position: number;
+  text: string;
+  voice_type: ConversationVoiceType;
+  clone_setting_id: number | null;
+  voice_label: string;
+  audio_url: string;
+  lang: string;
+  speed: number;
+  num_step: number;
+  instruct: string;
+  selected_gender: string;
+  selected_accent: string;
+  selected_pitch: string;
+  selected_age: string;
+  selected_style: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Conversation = {
+  id: number;
+  name: string;
+  lines: ConversationLine[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConversationLineMutation = {
+  position: number;
+  text: string;
+  voice_type: ConversationVoiceType;
+  persisted_voice_type?: ConversationVoiceType;
+  clone_setting_id: number | null;
+  voice_label: string;
+  audio_url: string;
+  lang: string;
+  speed: number;
+  num_step: number;
+  instruct: string;
+  selected_gender: string;
+  selected_accent: string;
+  selected_pitch: string;
+  selected_age: string;
+  selected_style: string;
+};
+
+export type ConversationMutation = {
+  name: string;
+  lines: ConversationLineMutation[];
+};
+
+export type ConversationListResponse = {
+  conversations: Conversation[];
+};
+
+export type ConversationResponse = ApiMessageResponse & {
+  conversation: Conversation;
 };
 
 export type TtsFormState = {

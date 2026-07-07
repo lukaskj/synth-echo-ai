@@ -3,12 +3,15 @@
   "private": true,
   "scripts": {
     "postinstall": "bun run backend:setup",
-    "frontend": "bun run --cwd apps/frontend",
-    "frontend:dev": "bun run --cwd apps/frontend dev",
-    "frontend:start": "bun run --cwd apps/frontend start",
-    "backend": "bun run --cwd apps/backend",
     "backend:setup": "bun scripts/back-setup.ts",
-    "backend:dev": "bun scripts/back-run.ts"
+    "frontend": "bun run --cwd apps/frontend dev",
+    "backend": "bun python app.py",
+    "run:front": "bun run --cwd apps/frontend",
+    "python": "bun scripts/python.ts",
+    "pip": "bun python -m pip",
+    "lint:front": "bun run:front lint",
+    "lint:back": "bun python -m ruff check",
+    "lint:all": "bun lint:front && bun lint:back"
   },
   "workspaces": [
     "apps/frontend"

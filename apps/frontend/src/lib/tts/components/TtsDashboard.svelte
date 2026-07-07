@@ -1,5 +1,4 @@
 <script lang="ts">
-  import DashboardHeader from './DashboardHeader.svelte';
   import TextInputCard from './TextInputCard.svelte';
   import AudioOutputCard from './AudioOutputCard.svelte';
   import VoicePanel from './VoicePanel.svelte';
@@ -22,9 +21,6 @@
 
     // Status
     status,
-    modelReady,
-    modelDevice,
-    isBusy,
 
     // Audio output
     audioUrl,
@@ -36,8 +32,6 @@
     canSubmit,
 
     // Model controls
-    onLoadModel,
-    onUnloadModel,
     onSubmit,
 
     // Synthesis settings
@@ -105,16 +99,11 @@
     synthesizeInputText?: string;
     cloneInputText?: string;
     status: RequestStatus;
-    modelReady: boolean;
-    modelDevice: string | null;
-    isBusy: boolean;
     audioUrl: string;
     errorMessage: string;
     responseMessage: string;
     lastRequest: LastRequest | null;
     canSubmit: boolean;
-    onLoadModel: () => void;
-    onUnloadModel: () => void;
     onSubmit: (event: SubmitEvent) => void;
     synthesizeLang?: string;
     synthesizeSpeed?: number;
@@ -172,81 +161,69 @@
   } = $props();
 </script>
 
-<div class="bg-background text-foreground min-h-screen">
-  <DashboardHeader {status} {modelReady} {modelDevice} {isBusy} {onLoadModel} {onUnloadModel} />
+<form class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]" onsubmit={onSubmit}>
+  <!-- Left column: Text input + Audio output -->
+  <div class="flex flex-col gap-4">
+    <TextInputCard {mode} bind:synthesizeInputText bind:cloneInputText {status} {canSubmit} />
 
-  <main class="mx-auto max-w-7xl px-4 py-6">
-    <form class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]" onsubmit={onSubmit}>
-      <!-- Left column: Text input + Audio output -->
-      <div class="flex flex-col gap-4">
-        <TextInputCard
-          bind:mode
-          bind:synthesizeInputText
-          bind:cloneInputText
-          {status}
-          {canSubmit}
-        />
+    <AudioOutputCard {audioUrl} {errorMessage} {responseMessage} {lastRequest} {status} />
+  </div>
 
-        <AudioOutputCard {audioUrl} {errorMessage} {responseMessage} {lastRequest} {status} />
-      </div>
-
-      <!-- Right column: Voice panel + Settings -->
-      <VoicePanel
-        {mode}
-        {cloneView}
-        {isRecordMode}
-        bind:isVoiceSheetOpen
-        {savedCloneSettings}
-        {selectedCloneSettingId}
-        {selectedCloneSetting}
-        {isCloneSettingsLoading}
-        {hasLoadedCloneSettings}
-        {isSavingCloneSetting}
-        {isUpdatingCloneSetting}
-        {isDeletingCloneSetting}
-        {canSaveCloneSetting}
-        {canUpdateCloneSetting}
-        {canDeleteCloneSetting}
-        {cloneSettingsMessage}
-        {cloneSettingsErrorMessage}
-        bind:cloneSettingName
-        bind:cloneRefText
-        bind:cloneLang
-        bind:cloneSpeed
-        bind:cloneNumStep
-        bind:synthesizeLang
-        bind:synthesizeSpeed
-        bind:synthesizeNumStep
-        bind:selectedGender
-        bind:selectedAccent
-        bind:selectedPitch
-        bind:selectedAge
-        bind:selectedStyle
-        {instruct}
-        {cloneRefAudioFile}
-        {cloneRefAudioPreviewUrl}
-        {cloneRefAudioInputKey}
-        {cloneRefAudioIsMicrophoneRecording}
-        {isRecordingCloneRefAudio}
-        {recordingElapsedLabel}
-        {microphoneStatusMessage}
-        {microphoneStatusIsError}
-        {isSpeechRecognitionSupported}
-        {canRecordCloneRefAudio}
-        {mediaStream}
-        {onSelectVoice}
-        {onStartAddUpload}
-        {onStartAddRecord}
-        {onStartEditVoice}
-        {onSaveCloneSetting}
-        {onUpdateCloneSetting}
-        {onDeleteVoice}
-        {onDeleteSelectedVoice}
-        {onBackToList}
-        {onRefreshVoices}
-        {onToggleRecording}
-        {onRefAudioChange}
-      />
-    </form>
-  </main>
-</div>
+  <!-- Right column: Voice panel + Settings -->
+  <VoicePanel
+    bind:mode
+    {cloneView}
+    {isRecordMode}
+    bind:isVoiceSheetOpen
+    {savedCloneSettings}
+    {selectedCloneSettingId}
+    {selectedCloneSetting}
+    {isCloneSettingsLoading}
+    {hasLoadedCloneSettings}
+    {isSavingCloneSetting}
+    {isUpdatingCloneSetting}
+    {isDeletingCloneSetting}
+    {canSaveCloneSetting}
+    {canUpdateCloneSetting}
+    {canDeleteCloneSetting}
+    {cloneSettingsMessage}
+    {cloneSettingsErrorMessage}
+    bind:cloneSettingName
+    bind:cloneRefText
+    bind:cloneLang
+    bind:cloneSpeed
+    bind:cloneNumStep
+    bind:synthesizeLang
+    bind:synthesizeSpeed
+    bind:synthesizeNumStep
+    bind:selectedGender
+    bind:selectedAccent
+    bind:selectedPitch
+    bind:selectedAge
+    bind:selectedStyle
+    {instruct}
+    {cloneRefAudioFile}
+    {cloneRefAudioPreviewUrl}
+    {cloneRefAudioInputKey}
+    {cloneRefAudioIsMicrophoneRecording}
+    {isRecordingCloneRefAudio}
+    {recordingElapsedLabel}
+    {microphoneStatusMessage}
+    {microphoneStatusIsError}
+    {isSpeechRecognitionSupported}
+    {canRecordCloneRefAudio}
+    {mediaStream}
+    {onSelectVoice}
+    {onStartAddUpload}
+    {onStartAddRecord}
+    {onStartEditVoice}
+    {onSaveCloneSetting}
+    {onUpdateCloneSetting}
+    {onDeleteVoice}
+    {onDeleteSelectedVoice}
+    {onBackToList}
+    {onRefreshVoices}
+    {onToggleRecording}
+    {onRefAudioChange}
+  />
+</form>

@@ -2,14 +2,13 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import { Textarea } from '$lib/components/ui/textarea/index.js';
   import * as Card from '$lib/components/ui/card/index.js';
-  import * as Select from '$lib/components/ui/select/index.js';
   import PlayIcon from 'lucide-svelte/icons/play';
   import LoaderIcon from 'lucide-svelte/icons/loader';
   import type { TtsMode, RequestStatus } from '$lib/tts/types';
-  import { MODE_OPTIONS, UI_TEXT } from '$lib/tts/constants';
+  import { UI_TEXT } from '$lib/tts/constants';
 
   let {
-    mode = $bindable('synthesize'),
+    mode = 'synthesize',
     synthesizeInputText = $bindable(''),
     cloneInputText = $bindable(''),
     status,
@@ -41,27 +40,9 @@
 
 <Card.Root class="flex flex-col">
   <Card.Header class="pb-3">
-    <div class="flex items-center justify-between gap-3">
-      <Card.Title class="text-sm font-semibold">
-        {isCloneMode ? UI_TEXT.cloneTitle : UI_TEXT.synthesisTitle}
-      </Card.Title>
-      <!-- Mode selector -->
-      <Select.Root
-        value={mode}
-        onValueChange={(v) => {
-          mode = v as TtsMode;
-        }}
-      >
-        <Select.Trigger size="sm" class="w-fit min-w-36">
-          {MODE_OPTIONS.find((o) => o.value === mode)?.label ?? 'Select mode...'}
-        </Select.Trigger>
-        <Select.Content>
-          {#each MODE_OPTIONS as option (option.value)}
-            <Select.Item value={option.value} label={option.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
+    <Card.Title class="text-sm font-semibold">
+      {isCloneMode ? UI_TEXT.cloneTitle : UI_TEXT.synthesisTitle}
+    </Card.Title>
   </Card.Header>
 
   <Card.Content class="flex flex-1 flex-col gap-3">
